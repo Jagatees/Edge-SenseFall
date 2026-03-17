@@ -3,7 +3,6 @@ astunparse==1.6.3
 certifi==2026.2.25
 cffi==2.0.0
 charset-normalizer==3.4.4
-Flask==3.1.2
 flatbuffers==20181003210633
 gast==0.7.0
 google-pasta==0.2.0
@@ -18,7 +17,7 @@ MarkupSafe==3.0.3
 mdurl==0.1.2
 ml_dtypes==0.5.4
 namex==0.1.0
-numpy==2.4.2
+# numpy==2.4.2
 opencv-python==4.13.0.92
 opt_einsum==3.4.0
 optree==0.19.0
@@ -44,3 +43,6 @@ urllib3==2.6.3
 Werkzeug==3.1.6
 wheel==0.46.3
 wrapt==2.1.1
+cffi==2.0.0
+numpy==1.26.4
+tflite-runtime==2.14.0
