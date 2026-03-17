@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SmartFall Cloud Dashboard</title>
+  <style>
+    :root {
+      --bg: #eef6ff;
+      --card: #ffffff;
+      --ink: #10243f;
+      --muted: #5f6b7a;
+      --line: #d7e4f2;
+      --accent: #0ea5e9;
+      --danger: #b91c1c;
+    }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--ink);
+      background: linear-gradient(140deg, #dbeafe 0%, #f8fafc 40%, #d1fae5 100%);
+    }
+    .wrap { max-width: 980px; margin: 20px auto; padding: 0 16px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 8px 20px rgba(16, 36, 63, 0.08);
+      margin-bottom: 12px;
+    }
+    h1 { margin: 0 0 8px; }
+    .muted { color: var(--muted); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .btn {
+      border: 1px solid #0b7db1;
+      background: #e0f2fe;
+      color: #075985;
+      border-radius: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); }
+    .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 12px; }
+    .fall { background: #fee2e2; color: var(--danger); }
+    .ok { background: #dcfce7; color: #166534; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>SmartFall Cloud Dashboard</h1>
+      <p class="muted">Remote events from Raspberry Pi devices.</p>
+      <div class="row">
+        <button class="btn" id="refreshBtn">Refresh</button>
+        <span class="muted" id="status">Loading...</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Event Time</th>
+            <th>Type</th>
+            <th>Confidence</th>
+            <th>Device</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    async function loadEvents() {
+      const status = document.getElementById('status');
+      const rows = document.getElementById('rows');
+      status.textContent = 'Loading...';
+      try {
+        const res = await fetch('/api/events?limit=100');
+        const data = await res.json();
+        if (!data.ok) {
+          status.textContent = 'API error';
+          return;
+        }
+
+        rows.innerHTML = '';
+        for (const e of data.events) {
+          const tr = document.createElement('tr');
+          const type = (e.event_type || 'unknown').toLowerCase();
+          const cls = type === 'fall' ? 'fall' : 'ok';
+          tr.innerHTML = `
+            <td>${e.event_time || '-'}</td>
+            <td><span class="pill ${cls}">${e.event_type || '-'}</span></td>
+            <td>${e.confidence ?? '-'}</td>
+            <td>${e.device_id || '-'}</td>
+            <td>${e.source || '-'}</td>
+          `;
+          rows.appendChild(tr);
+        }
+        status.textContent = `Loaded ${data.events.length} events`;
+      } catch (err) {
+        status.textContent = `Request failed: ${err}`;
+      }
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', loadEvents);
+    loadEvents();
+    setInterval(loadEvents, 5000);
+  </script>
+</body>
+</html>
