@@ -29,7 +29,12 @@ create table if not exists smartfall_events (
 
 1. Push this branch to GitHub
 2. Import repo into Vercel
-3. Deploy with root settings as-is
+3. Keep the root directory as `./`
+4. Application preset can stay as `Other`
+5. Deploy with the default settings in `vercel.json`
+
+Vercel uses the lightweight Python dependencies in `api/requirements.txt` for the cloud API.
+The root `requirements.txt` is still for Raspberry Pi and local edge inference only.
 
 ## 3. Set Vercel Environment Variables
 

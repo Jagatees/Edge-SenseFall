@@ -47,13 +47,18 @@
     .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 12px; }
     .fall { background: #fee2e2; color: var(--danger); }
     .ok { background: #dcfce7; color: #166534; }
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 28px 12px;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
       <h1>SmartFall Cloud Dashboard</h1>
-      <p class="muted">Remote events from Raspberry Pi devices.</p>
+      <p class="muted">Remote fall monitoring dashboard for Raspberry Pi devices.</p>
       <div class="row">
         <button class="btn" id="refreshBtn">Refresh</button>
         <span class="muted" id="status">Loading...</span>
@@ -77,41 +82,70 @@
   </div>
 
   <script>
+    const demoEvents = [
+      {
+        event_time: '2026-03-17 14:10:00',
+        event_type: 'fall',
+        confidence: 0.93,
+        device_id: 'demo_pi_01',
+        source: 'demo'
+      },
+      {
+        event_time: '2026-03-17 13:58:00',
+        event_type: 'normal',
+        confidence: 0.12,
+        device_id: 'demo_pi_01',
+        source: 'demo'
+      }
+    ];
+
+    function renderEvents(events) {
+      const rows = document.getElementById('rows');
+      rows.innerHTML = '';
+
+      if (!events.length) {
+        rows.innerHTML = '<tr><td colspan="5" class="empty">No events yet.</td></tr>';
+        return;
+      }
+
+      for (const e of events) {
+        const tr = document.createElement('tr');
+        const type = (e.event_type || 'unknown').toLowerCase();
+        const cls = type === 'fall' ? 'fall' : 'ok';
+        tr.innerHTML = `
+          <td>${e.event_time || '-'}</td>
+          <td><span class="pill ${cls}">${e.event_type || '-'}</span></td>
+          <td>${e.confidence ?? '-'}</td>
+          <td>${e.device_id || '-'}</td>
+          <td>${e.source || '-'}</td>
+        `;
+        rows.appendChild(tr);
+      }
+    }
+
     async function loadEvents() {
       const status = document.getElementById('status');
-      const rows = document.getElementById('rows');
       status.textContent = 'Loading...';
       try {
         const res = await fetch('/api/events?limit=100');
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
         const data = await res.json();
-        if (!data.ok) {
-          status.textContent = 'API error';
-          return;
+        if (!data.ok || !Array.isArray(data.events)) {
+          throw new Error('API unavailable');
         }
 
-        rows.innerHTML = '';
-        for (const e of data.events) {
-          const tr = document.createElement('tr');
-          const type = (e.event_type || 'unknown').toLowerCase();
-          const cls = type === 'fall' ? 'fall' : 'ok';
-          tr.innerHTML = `
-            <td>${e.event_time || '-'}</td>
-            <td><span class="pill ${cls}">${e.event_type || '-'}</span></td>
-            <td>${e.confidence ?? '-'}</td>
-            <td>${e.device_id || '-'}</td>
-            <td>${e.source || '-'}</td>
-          `;
-          rows.appendChild(tr);
-        }
-        status.textContent = `Loaded ${data.events.length} events`;
+        renderEvents(data.events);
+        status.textContent = `Loaded ${data.events.length} live events`;
       } catch (err) {
-        status.textContent = `Request failed: ${err}`;
+        renderEvents(demoEvents);
+        status.textContent = 'Showing demo dashboard preview';
       }
     }
 
     document.getElementById('refreshBtn').addEventListener('click', loadEvents);
     loadEvents();
-    setInterval(loadEvents, 5000);
   </script>
 </body>
 </html>
