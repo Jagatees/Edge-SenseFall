@@ -5,6 +5,7 @@ import smtplib
 from collections import deque
 from datetime import datetime
 from email.message import EmailMessage
+from alert_service import send_fall_alert
 
 import cv2
 import requests
@@ -15,7 +16,7 @@ from inference.pose_detection import PoseEstimator
 
 
 app = Flask(__name__)
-DEFAULT_ALERT_EMAIL = "jagateesvaran@gmail.com"
+# DEFAULT_ALERT_EMAIL = "jagateesvaran@gmail.com"
 
 
 class AppState:
@@ -32,8 +33,8 @@ class AppState:
         self.camera_connected = False
         self.last_no_frame_log_ts = 0
 
-        self.last_email_sent_ts = 0
-        self.email_cooldown_sec = int(os.getenv("EMAIL_COOLDOWN_SEC", "60"))
+        # self.last_email_sent_ts = 0
+        # self.email_cooldown_sec = int(os.getenv("EMAIL_COOLDOWN_SEC", "60"))
 
     def to_dict(self):
         with self.lock:
@@ -97,71 +98,71 @@ def sync_event_to_cloud(event_time, event_type, confidence=None, metadata=None):
         state.add_event("WARN", f"Cloud sync error: {exc}")
 
 
-def send_fall_email_alert(event_time, is_test=False):
-    smtp_host = os.getenv("ALERT_SMTP_HOST")
-    smtp_port = int(os.getenv("ALERT_SMTP_PORT", "587"))
-    smtp_user = os.getenv("ALERT_SMTP_USER")
-    smtp_pass = os.getenv("ALERT_SMTP_PASS")
-    sender = os.getenv("ALERT_FROM_EMAIL", DEFAULT_ALERT_EMAIL)
-    recipient = os.getenv("ALERT_TO_EMAIL", DEFAULT_ALERT_EMAIL)
+# def send_fall_email_alert(event_time, is_test=False):
+#     smtp_host = os.getenv("ALERT_SMTP_HOST")
+#     smtp_port = int(os.getenv("ALERT_SMTP_PORT", "587"))
+#     smtp_user = os.getenv("ALERT_SMTP_USER")
+#     smtp_pass = os.getenv("ALERT_SMTP_PASS")
+#     sender = os.getenv("ALERT_FROM_EMAIL", DEFAULT_ALERT_EMAIL)
+#     recipient = os.getenv("ALERT_TO_EMAIL", DEFAULT_ALERT_EMAIL)
 
-    missing = []
-    if not smtp_host:
-        missing.append("ALERT_SMTP_HOST")
-    if not smtp_user:
-        missing.append("ALERT_SMTP_USER")
-    if not smtp_pass:
-        missing.append("ALERT_SMTP_PASS")
-    if not sender:
-        missing.append("ALERT_FROM_EMAIL")
-    if not recipient:
-        missing.append("ALERT_TO_EMAIL")
+#     missing = []
+#     if not smtp_host:
+#         missing.append("ALERT_SMTP_HOST")
+#     if not smtp_user:
+#         missing.append("ALERT_SMTP_USER")
+#     if not smtp_pass:
+#         missing.append("ALERT_SMTP_PASS")
+#     if not sender:
+#         missing.append("ALERT_FROM_EMAIL")
+#     if not recipient:
+#         missing.append("ALERT_TO_EMAIL")
 
-    if missing:
-        state.add_event("WARN", f"Email not sent: missing {', '.join(missing)}")
-        return
+#     if missing:
+#         state.add_event("WARN", f"Email not sent: missing {', '.join(missing)}")
+#         return
 
-    now = time.time()
-    if not is_test:
-        with state.lock:
-            if now - state.last_email_sent_ts < state.email_cooldown_sec:
-                state.add_event("INFO", "Email skipped due to cooldown")
-                return
+#     now = time.time()
+#     if not is_test:
+#         with state.lock:
+#             if now - state.last_email_sent_ts < state.email_cooldown_sec:
+#                 state.add_event("INFO", "Email skipped due to cooldown")
+#                 return
 
-    msg = EmailMessage()
-    if is_test:
-        msg["Subject"] = "SmartFall Test Email"
-    else:
-        msg["Subject"] = "SmartFall Alert: Possible Fall Detected"
-    msg["From"] = sender
-    msg["To"] = recipient
-    if is_test:
-        msg.set_content(
-            f"This is a test email from SmartFall dashboard at {event_time}.\n"
-            "SMTP configuration is working."
-        )
-    else:
-        msg.set_content(
-            f"A possible fall was detected at {event_time}.\n"
-            "Please check on the person immediately."
-        )
+#     msg = EmailMessage()
+#     if is_test:
+#         msg["Subject"] = "SmartFall Test Email"
+#     else:
+#         msg["Subject"] = "SmartFall Alert: Possible Fall Detected"
+#     msg["From"] = sender
+#     msg["To"] = recipient
+#     if is_test:
+#         msg.set_content(
+#             f"This is a test email from SmartFall dashboard at {event_time}.\n"
+#             "SMTP configuration is working."
+#         )
+#     else:
+#         msg.set_content(
+#             f"A possible fall was detected at {event_time}.\n"
+#             "Please check on the person immediately."
+#         )
 
-    try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.send_message(msg)
+#     try:
+#         with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+#             server.starttls()
+#             server.login(smtp_user, smtp_pass)
+#             server.send_message(msg)
 
-        if not is_test:
-            with state.lock:
-                state.last_email_sent_ts = now
-            state.add_event("INFO", f"Email alert sent to {recipient}")
-        else:
-            state.add_event("INFO", f"Test email sent to {recipient}")
-    except Exception as exc:
-        with state.lock:
-            state.last_error = f"Email error: {exc}"
-        state.add_event("ERROR", f"Failed to send email: {exc}")
+#         if not is_test:
+#             with state.lock:
+#                 state.last_email_sent_ts = now
+#             state.add_event("INFO", f"Email alert sent to {recipient}")
+#         else:
+#             state.add_event("INFO", f"Test email sent to {recipient}")
+#     except Exception as exc:
+#         with state.lock:
+#             state.last_error = f"Email error: {exc}"
+#         state.add_event("ERROR", f"Failed to send email: {exc}")
 
 
 def detector_loop():
@@ -216,10 +217,17 @@ def detector_loop():
                 sync_event_to_cloud(
                     event_time=event_time,
                     event_type="fall",
-                    confidence=0.9,
+                    confidence=0.95,
                     metadata={"sensor": "camera_pose"},
                 )
-                send_fall_email_alert(event_time)
+                success = send_fall_alert(
+                    confidence=0.9,
+                    trigger_source="camera_pose",
+                    location="home"
+                )
+                
+                state.add_event("INFO", "Fall alert email sent")
+                
 
             time.sleep(0.2)
         except Exception as exc:
@@ -464,7 +472,22 @@ def api_frame():
 @app.route("/api/test-email", methods=["POST"])
 def api_test_email():
     event_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    send_fall_email_alert(event_time, is_test=True)
+    #send_fall_email_alert(event_time, is_test=True)
+    # ✅ Simulate fall event
+    with state.lock:
+        state.last_fall_ts = event_time
+        state.total_fall_events += 1
+
+    state.add_event("ALERT", f"[TEST] Simulated fall at {event_time}")
+
+    # ✅ Trigger your alert_service email
+    send_fall_alert(
+        confidence=0.95,
+        trigger_source="manual test",
+        location="dashboard"
+    )
+
+    state.add_event("INFO", "Test fall triggered (email sent)")
     return jsonify({"ok": True, "message": "Test email request processed. Check event log."})
 
 
