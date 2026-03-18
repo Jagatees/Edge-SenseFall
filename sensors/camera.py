@@ -68,3 +68,5 @@ class Camera:
 
         # If no large movement detected
         return False
+
+
