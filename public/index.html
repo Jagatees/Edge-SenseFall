@@ -60,6 +60,12 @@
       color: var(--muted);
       padding: 28px 12px;
     }
+    .note {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
   </style>
 </head>
 <body>
@@ -82,6 +88,8 @@
         src="https://slideshow-describes-paperback-quarters.trycloudflare.com/video_feed"
         alt="Live Pi camera"
       />
+      <p class="note" id="cameraDelay">Estimated delay: 2 to 5 seconds over remote tunnel.</p>
+      <p class="note">Delay is longer because the video is going from Raspberry Pi to Cloudflare tunnel to Vercel page to your browser.</p>
     </div>
 
     <div class="card">
@@ -101,6 +109,8 @@
   </div>
 
   <script>
+    const estimatedDelaySeconds = { min: 2, max: 5 };
+
     const demoEvents = [
       {
         event_time: '2026-03-17 14:10:00',
@@ -164,6 +174,8 @@
     }
 
     document.getElementById('refreshBtn').addEventListener('click', loadEvents);
+    document.getElementById('cameraDelay').textContent =
+      `Estimated delay: ${estimatedDelaySeconds.min} to ${estimatedDelaySeconds.max} seconds over remote tunnel.`;
     loadEvents();
   </script>
 </body>
