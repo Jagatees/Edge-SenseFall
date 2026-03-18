@@ -66,6 +66,31 @@
       font-size: 14px;
       line-height: 1.5;
     }
+    .metaGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .metaItem {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #f8fbff;
+    }
+    .metaLabel {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .metaValue {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--ink);
+      word-break: break-word;
+    }
   </style>
 </head>
 <body>
@@ -88,7 +113,25 @@
         src="https://slideshow-describes-paperback-quarters.trycloudflare.com/video_feed"
         alt="Live Pi camera"
       />
-      <p class="note" id="cameraDelay">Estimated delay: 2 to 5 seconds over remote tunnel.</p>
+      <div class="metaGrid">
+        <div class="metaItem">
+          <div class="metaLabel">Last Page Refresh</div>
+          <div class="metaValue" id="lastRefreshTime">Loading...</div>
+        </div>
+        <div class="metaItem">
+          <div class="metaLabel">Estimated Delay</div>
+          <div class="metaValue" id="cameraDelay">2 to 5 seconds</div>
+        </div>
+        <div class="metaItem">
+          <div class="metaLabel">Stream Source</div>
+          <div class="metaValue">Raspberry Pi via Cloudflare Tunnel</div>
+        </div>
+        <div class="metaItem">
+          <div class="metaLabel">Remote URL</div>
+          <div class="metaValue" id="streamUrl">https://slideshow-describes-paperback-quarters.trycloudflare.com/video_feed</div>
+        </div>
+      </div>
+      <p class="note" id="cameraDelayNote">Estimated delay: 2 to 5 seconds over remote tunnel.</p>
       <p class="note">Delay is longer because the video is going from Raspberry Pi to Cloudflare tunnel to Vercel page to your browser.</p>
     </div>
 
@@ -110,6 +153,7 @@
 
   <script>
     const estimatedDelaySeconds = { min: 2, max: 5 };
+    const streamUrl = 'https://slideshow-describes-paperback-quarters.trycloudflare.com/video_feed';
 
     const demoEvents = [
       {
@@ -155,6 +199,7 @@
     async function loadEvents() {
       const status = document.getElementById('status');
       status.textContent = 'Loading...';
+      document.getElementById('lastRefreshTime').textContent = new Date().toLocaleString();
       try {
         const res = await fetch('/api/events?limit=100');
         if (!res.ok) {
@@ -175,6 +220,9 @@
 
     document.getElementById('refreshBtn').addEventListener('click', loadEvents);
     document.getElementById('cameraDelay').textContent =
+      `${estimatedDelaySeconds.min} to ${estimatedDelaySeconds.max} seconds`;
+    document.getElementById('streamUrl').textContent = streamUrl;
+    document.getElementById('cameraDelayNote').textContent =
       `Estimated delay: ${estimatedDelaySeconds.min} to ${estimatedDelaySeconds.max} seconds over remote tunnel.`;
     loadEvents();
   </script>
