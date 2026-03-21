@@ -91,6 +91,10 @@
       color: var(--ink);
       word-break: break-word;
     }
+    .email {
+      background: #e0f2fe;
+      color: #075985;
+    }
   </style>
 </head>
 <body>
@@ -155,22 +159,7 @@
     const estimatedDelaySeconds = { min: 2, max: 5 };
     const streamUrl = 'https://suits-consist-colours-ability.trycloudflare.com/video_feed';
 
-    const demoEvents = [
-      {
-        event_time: '2026-03-17 14:10:00',
-        event_type: 'fall',
-        confidence: 0.93,
-        device_id: 'demo_pi_01',
-        source: 'demo'
-      },
-      {
-        event_time: '2026-03-17 13:58:00',
-        event_type: 'normal',
-        confidence: 0.12,
-        device_id: 'demo_pi_01',
-        source: 'demo'
-      }
-    ];
+s
 
     function renderEvents(events) {
       const rows = document.getElementById('rows');
@@ -184,7 +173,9 @@
       for (const e of events) {
         const tr = document.createElement('tr');
         const type = (e.event_type || 'unknown').toLowerCase();
-        const cls = type === 'fall' ? 'fall' : 'ok';
+        let cls = 'ok';
+        if (type === 'fall') cls = 'fall';
+        else if (type ==='email') cls = 'email';
         tr.innerHTML = `
           <td>${e.event_time || '-'}</td>
           <td><span class="pill ${cls}">${e.event_type || '-'}</span></td>

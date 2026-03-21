@@ -9,7 +9,7 @@ from alert_service import send_fall_alert
 
 import cv2
 import requests
-from flask import Flask, jsonify, render_template_string, Response
+from flask import Flask, jsonify, render_template_string, Response, request
 
 from sensors.camera import Camera
 from inference.pose_detection import PoseEstimator
@@ -58,44 +58,21 @@ class AppState:
 state = AppState()
 
 
-def _resolve_cloud_events_url():
-    base = os.getenv("CLOUD_SYNC_URL", "").strip()
-    if not base:
-        return None
-    if base.endswith("/api/events"):
-        return base
-    return f"{base.rstrip('/')}/api/events"
-
-
-def sync_event_to_cloud(event_time, event_type, confidence=None, metadata=None):
-    url = _resolve_cloud_events_url()
-    if not url:
-        return
-
-    api_key = os.getenv("CLOUD_SYNC_API_KEY", "").strip()
-    device_id = os.getenv("CLOUD_DEVICE_ID", "home_pi_01")
-    timeout_sec = float(os.getenv("CLOUD_SYNC_TIMEOUT_SEC", "5"))
-    headers = {"Content-Type": "application/json"}
-    if api_key:
-        headers["x-api-key"] = api_key
+def send_event_to_dashboard(event_time, event_type, confidence=None, metadata=None):
+    url = "http://<PI_IP>:5000/api/event"   # change this
 
     payload = {
         "event_time": event_time,
         "event_type": event_type,
         "confidence": confidence,
-        "device_id": device_id,
-        "source": "raspberry-pi",
-        "metadata": metadata or {},
+        "metadata": metadata or {}
     }
 
     try:
-        resp = requests.post(url, json=payload, headers=headers, timeout=timeout_sec)
-        if resp.status_code >= 400:
-            state.add_event("WARN", f"Cloud sync failed: HTTP {resp.status_code}")
-        else:
-            state.add_event("INFO", "Cloud sync successful")
-    except Exception as exc:
-        state.add_event("WARN", f"Cloud sync error: {exc}")
+        requests.post(url, json=payload, timeout=3)
+        print("[INFO] Sent to dashboard")
+    except Exception as e:
+        print("[ERROR] Dashboard send failed:", e)
 
 
 # def send_fall_email_alert(event_time, is_test=False):
@@ -208,26 +185,7 @@ def detector_loop():
             keypoints = pose_model.estimate_pose(frame)
             camera_fall = pose_model.detect_fall_pose(keypoints, frame_width, frame_height)
 
-            if camera_fall:
-                event_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                with state.lock:
-                    state.last_fall_ts = event_time
-                    state.total_fall_events += 1
-                state.add_event("ALERT", f"Possible fall detected at {event_time}")
-                sync_event_to_cloud(
-                    event_time=event_time,
-                    event_type="fall",
-                    confidence=0.95,
-                    metadata={"sensor": "camera_pose"},
-                )
-                success = send_fall_alert(
-                    confidence=0.9,
-                    trigger_source="camera_pose",
-                    location="home"
-                )
-                
-                state.add_event("INFO", "Fall alert email sent")
-                
+            
 
             time.sleep(0.2)
         except Exception as exc:
@@ -468,27 +426,21 @@ def api_frame():
         return Response(status=500)
     return Response(encoded.tobytes(), mimetype="image/jpeg")
 
+@app.route("/api/event", methods=["POST"])
+def receive_event():
+    data = request.get_json()
+    if not data:
+        return jsonify({"ok": False, "message": "Invalid JSON"}), 400
 
-@app.route("/api/test-email", methods=["POST"])
-def api_test_email():
-    event_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    #send_fall_email_alert(event_time, is_test=True)
-    # ✅ Simulate fall event
-    with state.lock:
-        state.last_fall_ts = event_time
-        state.total_fall_events += 1
+    event_time = data.get("event_time")
+    event_type = data.get("event_type")
+    confidence = data.get("confidence")
+    metadata = data.get("metadata", {})
 
-    state.add_event("ALERT", f"[TEST] Simulated fall at {event_time}")
+    state.add_event("INFO", f"{event_type.upper()} | Confidence: {confidence} | {metadata}")
 
-    # ✅ Trigger your alert_service email
-    send_fall_alert(
-        confidence=0.95,
-        trigger_source="manual test",
-        location="dashboard"
-    )
+    return jsonify({"ok": True, "message": "Event received"})
 
-    state.add_event("INFO", "Test fall triggered (email sent)")
-    return jsonify({"ok": True, "message": "Test email request processed. Check event log."})
 
 
 if __name__ == "__main__":
