@@ -44,6 +44,7 @@ Notes: {extra_notes if extra_notes else "No additional notes."}
  
 Please check immediately.
 
+
 """.strip()
 
 		msg.set_content(body)
