@@ -59,7 +59,16 @@ state = AppState()
 
 
 def send_event_to_dashboard(event_time, event_type, confidence=None, metadata=None):
-    url = "http://<PI_IP>:5000/api/event"   # change this
+    DASHBOARD_URL = os.getenv("DASHBOARD_URL", "http://localhost:5000")
+
+    url = f"{DASHBOARD_URL}/api/event"  
+
+    # Round confidence to 2 decimal places
+    if confidence is not None:
+        try:
+            confidence = round(float(confidence), 2)
+        except (ValueError, TypeError):
+            confidence = None
 
     payload = {
         "event_time": event_time,
@@ -74,72 +83,6 @@ def send_event_to_dashboard(event_time, event_type, confidence=None, metadata=No
     except Exception as e:
         print("[ERROR] Dashboard send failed:", e)
 
-
-# def send_fall_email_alert(event_time, is_test=False):
-#     smtp_host = os.getenv("ALERT_SMTP_HOST")
-#     smtp_port = int(os.getenv("ALERT_SMTP_PORT", "587"))
-#     smtp_user = os.getenv("ALERT_SMTP_USER")
-#     smtp_pass = os.getenv("ALERT_SMTP_PASS")
-#     sender = os.getenv("ALERT_FROM_EMAIL", DEFAULT_ALERT_EMAIL)
-#     recipient = os.getenv("ALERT_TO_EMAIL", DEFAULT_ALERT_EMAIL)
-
-#     missing = []
-#     if not smtp_host:
-#         missing.append("ALERT_SMTP_HOST")
-#     if not smtp_user:
-#         missing.append("ALERT_SMTP_USER")
-#     if not smtp_pass:
-#         missing.append("ALERT_SMTP_PASS")
-#     if not sender:
-#         missing.append("ALERT_FROM_EMAIL")
-#     if not recipient:
-#         missing.append("ALERT_TO_EMAIL")
-
-#     if missing:
-#         state.add_event("WARN", f"Email not sent: missing {', '.join(missing)}")
-#         return
-
-#     now = time.time()
-#     if not is_test:
-#         with state.lock:
-#             if now - state.last_email_sent_ts < state.email_cooldown_sec:
-#                 state.add_event("INFO", "Email skipped due to cooldown")
-#                 return
-
-#     msg = EmailMessage()
-#     if is_test:
-#         msg["Subject"] = "SmartFall Test Email"
-#     else:
-#         msg["Subject"] = "SmartFall Alert: Possible Fall Detected"
-#     msg["From"] = sender
-#     msg["To"] = recipient
-#     if is_test:
-#         msg.set_content(
-#             f"This is a test email from SmartFall dashboard at {event_time}.\n"
-#             "SMTP configuration is working."
-#         )
-#     else:
-#         msg.set_content(
-#             f"A possible fall was detected at {event_time}.\n"
-#             "Please check on the person immediately."
-#         )
-
-#     try:
-#         with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-#             server.starttls()
-#             server.login(smtp_user, smtp_pass)
-#             server.send_message(msg)
-
-#         if not is_test:
-#             with state.lock:
-#                 state.last_email_sent_ts = now
-#             state.add_event("INFO", f"Email alert sent to {recipient}")
-#         else:
-#             state.add_event("INFO", f"Test email sent to {recipient}")
-#     except Exception as exc:
-#         with state.lock:
-#             state.last_error = f"Email error: {exc}"
-#         state.add_event("ERROR", f"Failed to send email: {exc}")
 
 
 def detector_loop():
@@ -313,18 +256,16 @@ HTML = """
     </div>
 
     <div class="card">
-      <h3 style="margin-top:0">Alerts</h3>
-      <div class="actions">
-        <button id="testEmailBtn" class="btn">Send Test Email</button>
-        <span id="testEmailStatus" class="status">Idle</span>
-      </div>
-    </div>
-
-    <div class="card">
       <h3 style="margin-top:0">Event Log</h3>
       <table>
         <thead>
-          <tr><th>Time</th><th>Level</th><th>Message</th></tr>
+          <tr>
+            <th>Event Time</th>
+            <th>Type</th>
+            <th>Confidence</th>
+            <th>Trigger</th>
+            <th>Status</th>
+          </tr>
         </thead>
         <tbody id="events"></tbody>
       </table>
@@ -334,6 +275,12 @@ HTML = """
   </div>
 
 <script>
+  function roundConfidence(value) {
+    if (value === null || value === undefined || value === '-') return '-';
+    const num = parseFloat(value);
+    return isNaN(num) ? '-' : num.toFixed(2);
+  }
+
   function levelPill(level) {
     const l = (level || '').toUpperCase();
     if (l === 'ALERT' || l === 'ERROR') return '<span class="pill alert">' + l + '</span>';
@@ -356,11 +303,23 @@ HTML = """
 
       const events = document.getElementById('events');
       events.innerHTML = '';
+      
       (data.events || []).forEach(e => {
         const tr = document.createElement('tr');
-        tr.innerHTML = '<td>' + (e.time || '-') + '</td>' +
-                       '<td>' + levelPill(e.level) + '</td>' +
-                       '<td>' + (e.message || '-') + '</td>';
+
+        let type = e.type || e.level || '-';
+        let confidence = roundConfidence(e.confidence);
+
+        let trigger = e.metadata?.trigger || 'fusion';
+        let status =  e.metadata?.status || '-';
+
+        tr.innerHTML = `
+          <td>${e.time || '-'}</td>
+          <td>${type}</td>
+          <td>${confidence}</td>
+          <td>${trigger}</td>
+          <td>${status}</td>
+        `;
         events.appendChild(tr);
       });
     } catch (err) {
@@ -376,24 +335,8 @@ HTML = """
     img.src = '/api/frame?ts=' + Date.now();
   }
 
-  async function sendTestEmail() {
-    const btn = document.getElementById('testEmailBtn');
-    const status = document.getElementById('testEmailStatus');
-    btn.disabled = true;
-    status.textContent = 'Sending...';
-    try {
-      const res = await fetch('/api/test-email', { method: 'POST' });
-      const data = await res.json();
-      status.textContent = data.message || 'Done';
-      await refresh();
-    } catch (err) {
-      status.textContent = 'Failed: ' + err;
-    } finally {
-      btn.disabled = false;
-    }
-  }
 
-  document.getElementById('testEmailBtn').addEventListener('click', sendTestEmail);
+
   refresh();
   updatePreview();
   setInterval(refresh, 2000);
@@ -407,7 +350,6 @@ HTML = """
 @app.route("/")
 def home():
     return render_template_string(HTML)
-
 
 @app.route("/api/status")
 def api_status():
@@ -437,7 +379,27 @@ def receive_event():
     confidence = data.get("confidence")
     metadata = data.get("metadata", {})
 
-    state.add_event("INFO", f"{event_type.upper()} | Confidence: {confidence} | {metadata}")
+    # Round confidence to 2 decimal places
+    if confidence is not None:
+        try:
+            confidence = round(float(confidence), 2)
+        except (ValueError, TypeError):
+            confidence = None
+
+    # update fall stats:
+    if event_type == "fall":
+        with state.lock:
+            state.last_fall_ts = event_time
+            state.total_fall_events += 1
+    
+    # store structured event
+    with state.lock:
+        state.events.appendleft({
+            "time": event_time,
+            "type": event_type,
+            "confidence": confidence,
+            "metadata": metadata
+        })
 
     return jsonify({"ok": True, "message": "Event received"})
 

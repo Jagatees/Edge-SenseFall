@@ -17,7 +17,6 @@ SMTP_PORT = 465
 _last_sent_time = 0
 COOLDOWN_SECONDS = 60
 
-
 def send_fall_alert(confidence=0.0, trigger_source="unknown", location="home", extra_notes=""):
 	def task():
 		global _last_sent_time
