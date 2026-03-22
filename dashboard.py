@@ -18,7 +18,6 @@ from inference.pose_detection import PoseEstimator
 app = Flask(__name__)
 # DEFAULT_ALERT_EMAIL = "jagateesvaran@gmail.com"
 
-
 class AppState:
     def __init__(self):
         self.lock = threading.Lock()
