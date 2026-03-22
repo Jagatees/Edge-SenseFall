@@ -60,6 +60,11 @@ def events_options():
     return ("", 204)
 
 
+@app.route("/api/event", methods=["OPTIONS"])
+def event_options():
+    return ("", 204)
+
+
 @app.route("/api/events", methods=["POST"])
 def create_event():
     missing = _missing_config()
@@ -91,6 +96,11 @@ def create_event():
 
     rows = resp.json() if resp.text else []
     return jsonify({"ok": True, "event": rows[0] if rows else event})
+
+
+@app.route("/api/event", methods=["POST"])
+def create_event_alias():
+    return create_event()
 
 
 @app.route("/api/events", methods=["GET"])

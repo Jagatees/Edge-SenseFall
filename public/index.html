@@ -140,14 +140,15 @@
     </div>
 
     <div class="card">
+      <h2 style="margin-top:0">Event Log</h2>
       <table>
         <thead>
           <tr>
             <th>Event Time</th>
             <th>Type</th>
             <th>Confidence</th>
-            <th>Device</th>
-            <th>Source</th>
+            <th>Trigger</th>
+            <th>Status</th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
@@ -159,29 +160,36 @@
     const estimatedDelaySeconds = { min: 2, max: 5 };
     const streamUrl = 'https://suits-consist-colours-ability.trycloudflare.com/video_feed';
 
-s
-
     function renderEvents(events) {
       const rows = document.getElementById('rows');
       rows.innerHTML = '';
 
-      if (!events.length) {
+      if (!events || !events.length) {
         rows.innerHTML = '<tr><td colspan="5" class="empty">No events yet.</td></tr>';
         return;
       }
 
       for (const e of events) {
         const tr = document.createElement('tr');
-        const type = (e.event_type || 'unknown').toLowerCase();
+        const eventTime = e.event_time || '-';
+        const eventType = e.event_type || 'unknown';
+        const confidence = (e.confidence != null && !Number.isNaN(Number(e.confidence)))
+          ? Number(e.confidence).toFixed(2)
+          : '-';
+        const trigger = (e.metadata && e.metadata.trigger) ? e.metadata.trigger : 'fusion';
+        const statusLabel = (e.metadata && e.metadata.status) ? e.metadata.status : '-';
+
         let cls = 'ok';
-        if (type === 'fall') cls = 'fall';
-        else if (type ==='email') cls = 'email';
+        const typeLower = (eventType || '').toString().toLowerCase();
+        if (typeLower === 'fall') cls = 'fall';
+        else if (typeLower === 'alert' || typeLower === 'error') cls = 'email';
+
         tr.innerHTML = `
-          <td>${e.event_time || '-'}</td>
-          <td><span class="pill ${cls}">${e.event_type || '-'}</span></td>
-          <td>${e.confidence ?? '-'}</td>
-          <td>${e.device_id || '-'}</td>
-          <td>${e.source || '-'}</td>
+          <td>${eventTime}</td>
+          <td><span class="pill ${cls}">${eventType}</span></td>
+          <td>${confidence}</td>
+          <td>${trigger}</td>
+          <td>${statusLabel}</td>
         `;
         rows.appendChild(tr);
       }
@@ -197,15 +205,16 @@ s
           throw new Error(`HTTP ${res.status}`);
         }
         const data = await res.json();
-        if (!data.ok || !Array.isArray(data.events)) {
+        if (!data || !Array.isArray(data.events)) {
           throw new Error('API unavailable');
         }
 
         renderEvents(data.events);
         status.textContent = `Loaded ${data.events.length} live events`;
       } catch (err) {
-        renderEvents(demoEvents);
-        status.textContent = 'Showing demo dashboard preview';
+        const rows = document.getElementById('rows');
+        rows.innerHTML = '<tr><td colspan="5" class="empty">Unable to fetch events</td></tr>';
+        status.textContent = 'Error loading events';
       }
     }
 
