@@ -59,9 +59,10 @@ state = AppState()
 
 
 def send_event_to_dashboard(event_time, event_type, confidence=None, metadata=None):
-    DASHBOARD_URL = os.getenv("DASHBOARD_URL", "http://localhost:5000")
+    DASHBOARD_URL = os.getenv("CLOUD_SYNC_URL", os.getenv("DASHBOARD_URL", "http://localhost:5000"))
+    api_key = os.getenv("CLOUD_SYNC_API_KEY", "")
 
-    url = f"{DASHBOARD_URL}/api/event"  
+    url = f"{DASHBOARD_URL.rstrip('/')}/api/event"
 
     # Round confidence to 2 decimal places
     if confidence is not None:
@@ -74,11 +75,16 @@ def send_event_to_dashboard(event_time, event_type, confidence=None, metadata=No
         "event_time": event_time,
         "event_type": event_type,
         "confidence": confidence,
+        "device_id": os.getenv("CLOUD_DEVICE_ID", "home_pi_01"),
+        "source": "edge",
         "metadata": metadata or {}
     }
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["x-api-key"] = api_key
 
     try:
-        requests.post(url, json=payload, timeout=3)
+        requests.post(url, json=payload, headers=headers, timeout=int(os.getenv("CLOUD_SYNC_TIMEOUT_SEC", "5")))
         print("[INFO] Sent to dashboard")
     except Exception as e:
         print("[ERROR] Dashboard send failed:", e)
