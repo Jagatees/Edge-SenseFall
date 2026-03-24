@@ -147,6 +147,8 @@
             <th>Event Time</th>
             <th>Type</th>
             <th>Confidence</th>
+            <th>Sensor</th>
+            <th>Scores</th>
             <th>Trigger</th>
             <th>Status</th>
           </tr>
@@ -176,6 +178,15 @@
         const confidence = (e.confidence != null && !Number.isNaN(Number(e.confidence)))
           ? Number(e.confidence).toFixed(2)
           : '-';
+        const sensor = (e.metadata && e.metadata.sensor) ? e.metadata.sensor : (e.source || '-');
+
+        let scores = '-';
+        if (e.metadata && e.metadata.sensor_scores && typeof e.metadata.sensor_scores === 'object') {
+          scores = Object.entries(e.metadata.sensor_scores)
+            .map(([k, v]) => `${k}: ${Number(v).toFixed(2)}`)
+            .join('<br>');
+        }
+
         const trigger = (e.metadata && e.metadata.trigger) ? e.metadata.trigger : 'fusion';
         const statusLabel = (e.metadata && e.metadata.status) ? e.metadata.status : '-';
 
@@ -188,6 +199,8 @@
           <td>${eventTime}</td>
           <td><span class="pill ${cls}">${eventType}</span></td>
           <td>${confidence}</td>
+          <td>${sensor}</td>
+          <td>${scores}</td>
           <td>${trigger}</td>
           <td>${statusLabel}</td>
         `;

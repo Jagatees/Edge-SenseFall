@@ -18,6 +18,7 @@ from inference.pose_detection import PoseEstimator
 app = Flask(__name__)
 # DEFAULT_ALERT_EMAIL = "jagateesvaran@gmail.com"
 
+
 class AppState:
     def __init__(self):
         self.lock = threading.Lock()
@@ -94,6 +95,8 @@ def detector_loop():
     camera = Camera()
     pose_model = PoseEstimator()
     state.add_event("INFO", "Detection loop started")
+    last_fall_time = 0
+    fall_cooldown = 5  # seconds
 
     while True:
         with state.lock:
@@ -133,7 +136,53 @@ def detector_loop():
             keypoints = pose_model.estimate_pose(frame)
             camera_fall = pose_model.detect_fall_pose(keypoints, frame_width, frame_height)
 
-            
+            # Send fall event if detected and cooldown expired
+            if camera_fall is not None and camera_fall > 0.5:
+                current_time = time.time()
+                if current_time - last_fall_time > fall_cooldown:
+                    event_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    # Send FALL event with sensor breakdown
+                    send_event_to_dashboard(
+                        event_time=event_time,
+                        event_type="fall",
+                        confidence=camera_fall,
+                        metadata={
+                            "trigger": "pose",
+                            "sensor": "camera",
+                            "sensor_scores": {
+                                "camera": camera_fall
+                            }
+                        }
+                    )
+                    
+                    # Send EMAIL alert event
+                    send_event_to_dashboard(
+                        event_time=event_time,
+                        event_type="email",
+                        confidence=None,
+                        metadata={
+                            "trigger": "pose",
+                            "sensor": "camera",
+                            "status": "sent",
+                            "sensor_scores": {
+                                "camera": camera_fall
+                            }
+                        }
+                    )
+                    
+                    last_fall_time = current_time
+                    state.add_event("ALERT", f"Fall detected via camera pose (conf={camera_fall:.2f})")
+                    
+                    # Send email alert
+                    try:
+                        send_fall_alert(
+                            confidence=camera_fall,
+                            trigger_source="camera_pose",
+                            extra_notes=f"Pose-based detection"
+                        )
+                    except Exception as e:
+                        state.add_event("WARN", f"Failed to send email: {e}")
 
             time.sleep(0.2)
         except Exception as exc:
@@ -268,6 +317,8 @@ HTML = """
             <th>Event Time</th>
             <th>Type</th>
             <th>Confidence</th>
+            <th>Sensor</th>
+            <th>Scores</th>
             <th>Trigger</th>
             <th>Status</th>
           </tr>
@@ -314,14 +365,27 @@ HTML = """
 
         let type = e.type || e.level || '-';
         let confidence = roundConfidence(e.confidence);
+        let sensor = e.metadata?.sensor || e.source || '-';
+
+        let sensorScores = e.metadata?.sensor_scores;
+        let scores = '-';
+        if (sensorScores && typeof sensorScores === 'object') {
+          scores = Object.entries(sensorScores)
+            .map(([k, v]) => `${k}: ${roundConfidence(v)}`)
+            .join('<br>');
+        } else if (sensorScores) {
+          scores = String(sensorScores);
+        }
 
         let trigger = e.metadata?.trigger || 'fusion';
-        let status =  e.metadata?.status || '-';
+        let status = e.metadata?.status || '-';
 
         tr.innerHTML = `
           <td>${e.time || '-'}</td>
           <td>${type}</td>
           <td>${confidence}</td>
+          <td>${sensor}</td>
+          <td>${scores}</td>
           <td>${trigger}</td>
           <td>${status}</td>
         `;
