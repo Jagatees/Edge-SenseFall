@@ -14,7 +14,6 @@ from flask import Flask, jsonify, render_template_string, Response, request
 from sensors.camera import Camera
 from inference.pose_detection import PoseEstimator
 
-
 app = Flask(__name__)
 # DEFAULT_ALERT_EMAIL = "jagateesvaran@gmail.com"
 
