@@ -14,6 +14,7 @@ from flask import Flask, jsonify, render_template_string, Response, request
 from sensors.camera import Camera
 from inference.pose_detection import PoseEstimator
 
+
 app = Flask(__name__)
 # DEFAULT_ALERT_EMAIL = "jagateesvaran@gmail.com"
 
@@ -315,10 +316,10 @@ HTML = """
           <tr>
             <th>Event Time</th>
             <th>Type</th>
-            <th>Confidence</th>
             <th>Sensor</th>
-            <th>Scores</th>
             <th>Trigger</th>
+            <th>Confidence</th>
+            <th>Scores</th>
             <th>Status</th>
           </tr>
         </thead>
@@ -364,9 +365,15 @@ HTML = """
 
         let type = e.type || e.level || '-';
         let confidence = roundConfidence(e.confidence);
-        let sensor = e.metadata?.sensor || e.source || '-';
-
         let sensorScores = e.metadata?.sensor_scores;
+        let usedSensors = [];
+        if (sensorScores && typeof sensorScores === 'object') {
+          usedSensors = Object.entries(sensorScores)
+            .filter(([, v]) => v !== null && v !== undefined && !isNaN(Number(v)))
+            .map(([k]) => k);
+        }
+        let sensor = usedSensors.length ? usedSensors.join(', ') : (e.metadata?.sensor || e.source || '-');
+
         let scores = '-';
         if (sensorScores && typeof sensorScores === 'object') {
           scores = Object.entries(sensorScores)
@@ -376,16 +383,33 @@ HTML = """
           scores = String(sensorScores);
         }
 
-        let trigger = e.metadata?.trigger || 'fusion';
+        let trigger = '-';
+        if (sensorScores && typeof sensorScores === 'object') {
+          let bestSensor = null;
+          let bestScore = -Infinity;
+          Object.entries(sensorScores).forEach(([name, value]) => {
+            const num = Number(value);
+            if (!isNaN(num) && num > bestScore) {
+              bestScore = num;
+              bestSensor = name;
+            }
+          });
+          if (bestSensor) {
+            trigger = bestSensor;
+          }
+        }
+        if (trigger === '-') {
+          trigger = e.metadata?.trigger || 'fusion';
+        }
         let status = e.metadata?.status || '-';
 
         tr.innerHTML = `
           <td>${e.time || '-'}</td>
           <td>${type}</td>
-          <td>${confidence}</td>
           <td>${sensor}</td>
-          <td>${scores}</td>
           <td>${trigger}</td>
+          <td>${confidence}</td>
+          <td>${scores}</td>
           <td>${status}</td>
         `;
         events.appendChild(tr);

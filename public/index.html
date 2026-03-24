@@ -146,10 +146,10 @@
           <tr>
             <th>Event Time</th>
             <th>Type</th>
-            <th>Confidence</th>
             <th>Sensor</th>
-            <th>Scores</th>
             <th>Trigger</th>
+            <th>Confidence</th>
+            <th>Scores</th>
             <th>Status</th>
           </tr>
         </thead>
@@ -167,7 +167,7 @@
       rows.innerHTML = '';
 
       if (!events || !events.length) {
-        rows.innerHTML = '<tr><td colspan="5" class="empty">No events yet.</td></tr>';
+        rows.innerHTML = '<tr><td colspan="6" class="empty">No events yet.</td></tr>';
         return;
       }
 
@@ -178,16 +178,49 @@
         const confidence = (e.confidence != null && !Number.isNaN(Number(e.confidence)))
           ? Number(e.confidence).toFixed(2)
           : '-';
-        const sensor = (e.metadata && e.metadata.sensor) ? e.metadata.sensor : (e.source || '-');
+        const sensorScores = (e.metadata && typeof e.metadata.sensor_scores === 'object')
+          ? e.metadata.sensor_scores
+          : null;
+
+        const usedSensors = sensorScores
+          ? Object.entries(sensorScores)
+            .filter(([, v]) => v !== null && v !== undefined && !Number.isNaN(Number(v)))
+            .map(([k]) => k)
+          : [];
+
+        const sensor = usedSensors.length
+          ? usedSensors.join(', ')
+          : ((e.metadata && e.metadata.sensor) ? e.metadata.sensor : (e.source || '-'));
 
         let scores = '-';
-        if (e.metadata && e.metadata.sensor_scores && typeof e.metadata.sensor_scores === 'object') {
-          scores = Object.entries(e.metadata.sensor_scores)
-            .map(([k, v]) => `${k}: ${Number(v).toFixed(2)}`)
+        if (sensorScores) {
+          scores = Object.entries(sensorScores)
+            .map(([k, v]) => {
+              const num = Number(v);
+              const pretty = (v === null || v === undefined || Number.isNaN(num)) ? '-' : num.toFixed(2);
+              return `${k}: ${pretty}`;
+            })
             .join('<br>');
         }
 
-        const trigger = (e.metadata && e.metadata.trigger) ? e.metadata.trigger : 'fusion';
+        let trigger = '-';
+        if (sensorScores) {
+          let bestSensor = null;
+          let bestScore = -Infinity;
+          for (const [name, value] of Object.entries(sensorScores)) {
+            const num = Number(value);
+            if (!Number.isNaN(num) && num > bestScore) {
+              bestScore = num;
+              bestSensor = name;
+            }
+          }
+          if (bestSensor) {
+            trigger = bestSensor;
+          }
+        }
+        if (trigger === '-') {
+          trigger = (e.metadata && e.metadata.trigger) ? e.metadata.trigger : 'fusion';
+        }
         const statusLabel = (e.metadata && e.metadata.status) ? e.metadata.status : '-';
 
         let cls = 'ok';
@@ -198,10 +231,10 @@
         tr.innerHTML = `
           <td>${eventTime}</td>
           <td><span class="pill ${cls}">${eventType}</span></td>
-          <td>${confidence}</td>
           <td>${sensor}</td>
-          <td>${scores}</td>
           <td>${trigger}</td>
+          <td>${confidence}</td>
+          <td>${scores}</td>
           <td>${statusLabel}</td>
         `;
         rows.appendChild(tr);
@@ -226,7 +259,7 @@
         status.textContent = `Loaded ${data.events.length} live events`;
       } catch (err) {
         const rows = document.getElementById('rows');
-        rows.innerHTML = '<tr><td colspan="5" class="empty">Unable to fetch events</td></tr>';
+        rows.innerHTML = '<tr><td colspan="6" class="empty">Unable to fetch events</td></tr>';
         status.textContent = 'Error loading events';
       }
     }
