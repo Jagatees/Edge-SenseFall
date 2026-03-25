@@ -42,8 +42,8 @@
       font-weight: 600;
     }
     table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--line); }
-    th { color: var(--muted); }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--line); text-transform: capitalize; }
+    th { color: var(--muted); text-transform: none; }
     .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 12px; }
     .fall { background: #fee2e2; color: var(--danger); }
     .ok { background: #dcfce7; color: #166534; }
@@ -241,7 +241,31 @@
               title: { display: true, text: 'Final Confidence' },
             },
             x: {
+              position: 'bottom',
               title: { display: true, text: 'Event Time' },
+              ticks: {
+                callback: function(value, index) {
+                  const label = String(this.getLabelForValue(value) || '');
+                  const parts = label.split(/[\sT]/);
+                  return parts.length > 1 ? parts[1] : label;
+                },
+              },
+            },
+            xTop: {
+              axis: 'x',
+              position: 'top',
+              ticks: {
+                callback: function(value, index) {
+                  const label = String(this.getLabelForValue(value) || '');
+                  const parts = label.split(/[\sT]/);
+                  const date = parts[0] || '';
+                  const allLabels = this.chart.data.labels;
+                  if (index === 0 || !allLabels) return date;
+                  const prevLabel = String(allLabels[index - 1] || '');
+                  return date !== prevLabel.split(/[\sT]/)[0] ? date : '';
+                },
+              },
+              grid: { drawOnChartArea: false },
             },
           },
         },
