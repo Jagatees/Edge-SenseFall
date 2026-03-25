@@ -1,5 +1,4 @@
 import cv2
-
 class Camera:
     """
     Handles webcam access and simple human presence detection
