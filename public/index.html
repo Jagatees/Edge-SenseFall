@@ -143,6 +143,14 @@
     </div>
 
     <div class="card">
+      <h2 style="margin-top:0">Fall Confidence Timeline</h2>
+      <p class="muted">Only points with confidence above 0.70 are plotted.</p>
+      <div class="chartWrap">
+        <canvas id="confidenceChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
       <h2 style="margin-top:0">Event Log</h2>
       <table>
         <thead>
@@ -158,14 +166,6 @@
         </thead>
         <tbody id="rows"></tbody>
       </table>
-    </div>
-
-    <div class="card">
-      <h2 style="margin-top:0">Fall Confidence Timeline</h2>
-      <p class="muted">Only points with confidence above 0.70 are plotted.</p>
-      <div class="chartWrap">
-        <canvas id="confidenceChart"></canvas>
-      </div>
     </div>
   </div>
 
@@ -237,13 +237,14 @@
             y: {
               min: 0,
               max: 1,
-              ticks: { stepSize: 0.1 },
-              title: { display: true, text: 'Final Confidence' },
+              ticks: { stepSize: 0.1, font: { weight: 'bold' } },
+              title: { display: true, text: 'Final Confidence', font: { weight: 'bold' } },
             },
             x: {
               position: 'bottom',
-              title: { display: true, text: 'Event Time' },
+              title: { display: true, text: 'Event Time', font: { weight: 'bold' } },
               ticks: {
+                font: { weight: 'bold' },
                 callback: function(value, index) {
                   const label = String(this.getLabelForValue(value) || '');
                   const parts = label.split(/[\sT]/);
@@ -255,6 +256,7 @@
               axis: 'x',
               position: 'top',
               ticks: {
+                font: { weight: 'bold' },
                 callback: function(value, index) {
                   const label = String(this.getLabelForValue(value) || '');
                   const parts = label.split(/[\sT]/);
