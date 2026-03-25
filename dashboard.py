@@ -1,18 +1,13 @@
 import os
 import time
 import threading
-import smtplib
 from collections import deque
 from datetime import datetime
-from email.message import EmailMessage
-from alert_service import send_fall_alert
 
 import cv2
-import requests
 from flask import Flask, jsonify, render_template_string, Response, request
 
 from sensors.camera import Camera
-from inference.pose_detection import PoseEstimator
 
 app = Flask(__name__)
 # DEFAULT_ALERT_EMAIL = "jagateesvaran@gmail.com"
@@ -57,45 +52,10 @@ class AppState:
 state = AppState()
 
 
-def send_event_to_dashboard(event_time, event_type, confidence=None, metadata=None):
-    DASHBOARD_URL = os.getenv("CLOUD_SYNC_URL", os.getenv("DASHBOARD_URL", "http://localhost:5000"))
-    api_key = os.getenv("CLOUD_SYNC_API_KEY", "")
-
-    url = f"{DASHBOARD_URL.rstrip('/')}/api/event"
-
-    # Round confidence to 2 decimal places
-    if confidence is not None:
-        try:
-            confidence = round(float(confidence), 2)
-        except (ValueError, TypeError):
-            confidence = None
-
-    payload = {
-        "event_time": event_time,
-        "event_type": event_type,
-        "confidence": confidence,
-        "device_id": os.getenv("CLOUD_DEVICE_ID", "home_pi_01"),
-        "source": "edge",
-        "metadata": metadata or {}
-    }
-    headers = {"Content-Type": "application/json"}
-    if api_key:
-        headers["x-api-key"] = api_key
-
-    try:
-        requests.post(url, json=payload, headers=headers, timeout=int(os.getenv("CLOUD_SYNC_TIMEOUT_SEC", "5")))
-        print("[INFO] Sent to dashboard")
-    except Exception as e:
-        print("[ERROR] Dashboard send failed:", e)
-
-
 
 def detector_loop():
     camera = Camera()
-    pose_model = PoseEstimator()
     state.add_event("INFO", "Detection loop started")
-    last_fall_time = 0
-    fall_cooldown = 5  # seconds
 
     while True:
         with state.lock:
@@ -130,58 +90,6 @@ def detector_loop():
             if not person_visible:
                 time.sleep(0.2)
                 continue
-
-            frame_height, frame_width, _ = frame.shape
-            keypoints = pose_model.estimate_pose(frame)
-            camera_fall = pose_model.detect_fall_pose(keypoints, frame_width, frame_height)
-
-            # Send fall event if detected and cooldown expired
-            if camera_fall is not None and camera_fall > 0.5:
-                current_time = time.time()
-                if current_time - last_fall_time > fall_cooldown:
-                    event_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    
-                    # Send FALL event with sensor breakdown
-                    send_event_to_dashboard(
-                        event_time=event_time,
-                        event_type="fall",
-                        confidence=camera_fall,
-                        metadata={
-                            "trigger": "pose",
-                            "sensor": "camera",
-                            "sensor_scores": {
-                                "camera": camera_fall
-                            }
-                        }
-                    )
-                    
-                    # Send EMAIL alert event
-                    send_event_to_dashboard(
-                        event_time=event_time,
-                        event_type="email",
-                        confidence=None,
-                        metadata={
-                            "trigger": "pose",
-                            "sensor": "camera",
-                            "status": "sent",
-                            "sensor_scores": {
-                                "camera": camera_fall
-                            }
-                        }
-                    )
-                    
-                    last_fall_time = current_time
-                    state.add_event("ALERT", f"Fall detected via camera pose (conf={camera_fall:.2f})")
-                    
-                    # Send email alert
-                    try:
-                        send_fall_alert(
-                            confidence=camera_fall,
-                            trigger_source="camera_pose",
-                            extra_notes=f"Pose-based detection"
-                        )
-                    except Exception as e:
-                        state.add_event("WARN", f"Failed to send email: {e}")
 
             time.sleep(0.2)
         except Exception as exc:
