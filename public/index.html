@@ -95,6 +95,9 @@
       background: #e0f2fe;
       color: #075985;
     }
+    .chartWrap {
+      height: 280px;
+    }
   </style>
 </head>
 <body>
@@ -156,18 +159,101 @@
         <tbody id="rows"></tbody>
       </table>
     </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Fall Confidence Timeline</h2>
+      <p class="muted">Only points with confidence above 0.70 are plotted.</p>
+      <div class="chartWrap">
+        <canvas id="confidenceChart"></canvas>
+      </div>
+    </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     const estimatedDelaySeconds = { min: 2, max: 5 };
     const streamUrl = 'https://suits-consist-colours-ability.trycloudflare.com/video_feed';
+    const FALL_THRESHOLD = 0.7;
+    let confidenceChart = null;
+
+    function toMillis(ts) {
+      if (!ts) return 0;
+      const d = new Date(String(ts).replace(' ', 'T'));
+      const t = d.getTime();
+      return Number.isNaN(t) ? 0 : t;
+    }
+
+    function updateConfidenceChart(events) {
+      const points = (events || [])
+        .map((e) => {
+          const eventTime = e.event_time || e.time || '-';
+          const confNum = Number(e.confidence);
+          return {
+            eventTime,
+            confNum,
+            millis: toMillis(eventTime),
+          };
+        })
+        .filter((p) => !Number.isNaN(p.confNum) && p.confNum > FALL_THRESHOLD)
+        .sort((a, b) => a.millis - b.millis);
+
+      const labels = points.map((p) => p.eventTime);
+      const data = points.map((p) => p.confNum);
+
+      const ctx = document.getElementById('confidenceChart');
+      if (!ctx) return;
+
+      if (confidenceChart) {
+        confidenceChart.destroy();
+      }
+
+      confidenceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Final Confidence',
+              data,
+              borderColor: '#0ea5e9',
+              backgroundColor: 'rgba(14, 165, 233, 0.2)',
+              pointBackgroundColor: '#0284c7',
+              pointBorderColor: '#0284c7',
+              pointRadius: 4,
+              pointHoverRadius: 5,
+              borderWidth: 2,
+              tension: 0.25,
+              fill: false,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+          },
+          scales: {
+            y: {
+              min: 0,
+              max: 1,
+              ticks: { stepSize: 0.1 },
+              title: { display: true, text: 'Final Confidence' },
+            },
+            x: {
+              title: { display: true, text: 'Event Time' },
+            },
+          },
+        },
+      });
+    }
 
     function renderEvents(events) {
       const rows = document.getElementById('rows');
       rows.innerHTML = '';
 
       if (!events || !events.length) {
-        rows.innerHTML = '<tr><td colspan="6" class="empty">No events yet.</td></tr>';
+        rows.innerHTML = '<tr><td colspan="7" class="empty">No events yet.</td></tr>';
         return;
       }
 
@@ -256,10 +342,12 @@
         }
 
         renderEvents(data.events);
+        updateConfidenceChart(data.events);
         status.textContent = `Loaded ${data.events.length} live events`;
       } catch (err) {
         const rows = document.getElementById('rows');
-        rows.innerHTML = '<tr><td colspan="6" class="empty">Unable to fetch events</td></tr>';
+        rows.innerHTML = '<tr><td colspan="7" class="empty">Unable to fetch events</td></tr>';
+        updateConfidenceChart([]);
         status.textContent = 'Error loading events';
       }
     }

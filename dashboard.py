@@ -281,6 +281,9 @@ HTML = """
       border-radius: 10px;
       font-weight: 600;
     }
+    .chartWrap {
+      height: 280px;
+    }
   </style>
 </head>
 <body>
@@ -326,14 +329,92 @@ HTML = """
       </table>
     </div>
 
+    <div class="card">
+      <h3 style="margin-top:0">Fall Confidence Timeline</h3>
+      <p class="subtitle">Only points with confidence above 0.70 are plotted.</p>
+      <div class="chartWrap">
+        <canvas id="confidenceChart"></canvas>
+      </div>
+    </div>
+
     <div class="footer">Auto-refresh every 2 seconds.</div>
   </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+  const FALL_THRESHOLD = 0.7;
+  let confidenceChart = null;
+
   function roundConfidence(value) {
     if (value === null || value === undefined || value === '-') return '-';
     const num = parseFloat(value);
     return isNaN(num) ? '-' : num.toFixed(2);
+  }
+
+  function toMillis(ts) {
+    if (!ts) return 0;
+    const d = new Date(String(ts).replace(' ', 'T'));
+    const t = d.getTime();
+    return isNaN(t) ? 0 : t;
+  }
+
+  function updateConfidenceChart(eventsList) {
+    const points = (eventsList || [])
+      .map(e => {
+        const eventTime = e.time || e.event_time || '-';
+        const confNum = Number(e.confidence);
+        return { eventTime, confNum, millis: toMillis(eventTime) };
+      })
+      .filter(p => !isNaN(p.confNum) && p.confNum > FALL_THRESHOLD)
+      .sort((a, b) => a.millis - b.millis);
+
+    const labels = points.map(p => p.eventTime);
+    const data = points.map(p => p.confNum);
+
+    const ctx = document.getElementById('confidenceChart');
+    if (!ctx) return;
+
+    if (confidenceChart) {
+      confidenceChart.destroy();
+    }
+
+    confidenceChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Final Confidence',
+          data,
+          borderColor: '#0ea5e9',
+          backgroundColor: 'rgba(14, 165, 233, 0.2)',
+          pointBackgroundColor: '#0284c7',
+          pointBorderColor: '#0284c7',
+          pointRadius: 4,
+          pointHoverRadius: 5,
+          borderWidth: 2,
+          tension: 0.25,
+          fill: false,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+        },
+        scales: {
+          y: {
+            min: 0,
+            max: 1,
+            ticks: { stepSize: 0.1 },
+            title: { display: true, text: 'Final Confidence' },
+          },
+          x: {
+            title: { display: true, text: 'Event Time' },
+          },
+        },
+      },
+    });
   }
 
   function levelPill(level) {
@@ -413,8 +494,11 @@ HTML = """
         `;
         events.appendChild(tr);
       });
+
+      updateConfidenceChart(data.events || []);
     } catch (err) {
       document.getElementById('lastError').textContent = 'Dashboard fetch error: ' + err;
+      updateConfidenceChart([]);
     }
   }
 
