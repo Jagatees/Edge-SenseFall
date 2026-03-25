@@ -112,13 +112,13 @@
     </div>
 
     <div class="card">
-      <h2 style="margin-top:0">Live Camera</h2>
-      <p class="muted">Remote stream from the Raspberry Pi camera.</p>
+      <h2 style="margin-top:0">Camera Snapshot</h2>
+      <p class="muted">1 frame per second from the Raspberry Pi camera.</p>
       <img
         id="liveCamera"
         class="preview"
-        src="https://suits-consist-colours-ability.trycloudflare.com/video_feed"
-        alt="Live Pi camera"
+        src=""
+        alt="Pi camera snapshot"
       />
       <div class="metaGrid">
         <div class="metaItem">
@@ -130,16 +130,24 @@
           <div class="metaValue" id="cameraDelay">2 to 5 seconds</div>
         </div>
         <div class="metaItem">
+          <div class="metaLabel">Capture Mode</div>
+          <div class="metaValue">Snapshot (not live stream)</div>
+        </div>
+        <div class="metaItem">
+          <div class="metaLabel">Snapshot Interval</div>
+          <div class="metaValue">1 second</div>
+        </div>
+        <div class="metaItem">
           <div class="metaLabel">Stream Source</div>
           <div class="metaValue">Raspberry Pi via Cloudflare Tunnel</div>
         </div>
         <div class="metaItem">
           <div class="metaLabel">Remote URL</div>
-          <div class="metaValue" id="streamUrl">https://suits-consist-colours-ability.trycloudflare.com/video_feed</div>
+          <div class="metaValue" id="streamUrl">https://mats-resolved-sam-jvc.trycloudflare.com/snapshot</div>
         </div>
       </div>
       <p class="note" id="cameraDelayNote">Estimated delay: 2 to 5 seconds over remote tunnel.</p>
-      <p class="note">Delay is longer because the video is going from Raspberry Pi to Cloudflare tunnel to Vercel page to your browser.</p>
+      <p class="note">Lower bandwidth mode: website fetches one JPEG every second instead of continuous video.</p>
     </div>
 
     <div class="card">
@@ -172,7 +180,9 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     const estimatedDelaySeconds = { min: 2, max: 5 };
-    const streamUrl = 'https://suits-consist-colours-ability.trycloudflare.com/video_feed';
+    const tunnelBaseUrl = 'https://mats-resolved-sam-jvc.trycloudflare.com';
+    const snapshotUrl = `${tunnelBaseUrl}/snapshot`;
+    const snapshotIntervalMs = 1000;
     const FALL_THRESHOLD = 0.7;
     let confidenceChart = null;
 
@@ -378,12 +388,19 @@
       }
     }
 
+    function refreshSnapshot() {
+      const img = document.getElementById('liveCamera');
+      img.src = `${snapshotUrl}?t=${Date.now()}`;
+    }
+
     document.getElementById('refreshBtn').addEventListener('click', loadEvents);
     document.getElementById('cameraDelay').textContent =
       `${estimatedDelaySeconds.min} to ${estimatedDelaySeconds.max} seconds`;
-    document.getElementById('streamUrl').textContent = streamUrl;
+    document.getElementById('streamUrl').textContent = snapshotUrl;
     document.getElementById('cameraDelayNote').textContent =
       `Estimated delay: ${estimatedDelaySeconds.min} to ${estimatedDelaySeconds.max} seconds over remote tunnel.`;
+    refreshSnapshot();
+    setInterval(refreshSnapshot, snapshotIntervalMs);
     loadEvents();
   </script>
 </body>
