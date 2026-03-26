@@ -1,0 +1,159 @@
+Pi Camera Quick Tunnel Setup
+
+Use this guide to set up a new Raspberry Pi so it serves camera snapshots and gives a temporary Cloudflare tunnel URL.
+
+What this setup does
+- Runs a camera server on the Pi at port 5000
+- Exposes a /snapshot endpoint for 1-frame-per-second frontend polling
+- Starts both services automatically on boot
+- Prints a temporary trycloudflare.com URL that can be sent back for frontend update
+
+Requirements
+- Raspberry Pi with camera connected
+- Internet connection on the Pi
+- SSH access to the Pi
+- Username below assumes "test"
+
+1. Install packages
+
+sudo apt update
+sudo apt install -y python3-full python3-venv python3-opencv
+
+2. Create Python environment
+
+python3 -m venv --system-site-packages ~/camdash-venv
+source ~/camdash-venv/bin/activate
+pip install flask
+
+3. Create camera app
+
+nano ~/camera_stream.py
+
+Paste this:
+
+from flask import Flask, Response
+import cv2
+
+app = Flask(__name__)
+camera = cv2.VideoCapture(0)
+
+def gen_frames():
+    while True:
+        success, frame = camera.read()
+        if not success:
+            continue
+        ok, buffer = cv2.imencode('.jpg', frame)
+        if not ok:
+            continue
+        yield (
+            b'--frame\\r\\n'
+            b'Content-Type: image/jpeg\\r\\n\\r\\n' + buffer.tobytes() + b'\\r\\n'
+        )
+
+@app.route('/')
+def home():
+    return '<h2>Pi Camera</h2><img src="/video_feed" style="max-width:100%;">'
+
+@app.route('/video_feed')
+def video_feed():
+    return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/snapshot')
+def snapshot():
+    success, frame = camera.read()
+    if not success:
+        return ("No frame", 503)
+    ok, buffer = cv2.imencode('.jpg', frame)
+    if not ok:
+        return ("Encode failed", 500)
+    return Response(buffer.tobytes(), mimetype='image/jpeg')
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=False)
+
+Save and exit nano:
+- Ctrl + O
+- Enter
+- Ctrl + X
+
+4. Install Cloudflare tunnel
+
+wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
+sudo dpkg -i cloudflared-linux-arm64.deb
+
+5. Create camera service
+
+sudo nano /etc/systemd/system/camera-stream.service
+
+Paste:
+
+[Unit]
+Description=Pi Camera Stream
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=test
+WorkingDirectory=/home/test
+ExecStart=/home/test/camdash-venv/bin/python /home/test/camera_stream.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+
+6. Create tunnel service
+
+sudo nano /etc/systemd/system/camera-tunnel.service
+
+Paste:
+
+[Unit]
+Description=Cloudflare Tunnel for Pi Camera
+After=network-online.target camera-stream.service
+Wants=network-online.target
+
+[Service]
+User=test
+WorkingDirectory=/home/test
+ExecStart=/usr/local/bin/cloudflared tunnel --url http://127.0.0.1:5000
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+
+7. Enable and start services
+
+sudo systemctl daemon-reload
+sudo systemctl enable camera-stream.service
+sudo systemctl enable camera-tunnel.service
+sudo systemctl restart camera-stream.service
+sudo systemctl restart camera-tunnel.service
+
+8. Verify local snapshot works
+
+curl -I http://127.0.0.1:5000/snapshot
+
+Expected result:
+- HTTP/1.1 200 OK
+
+9. Get current public tunnel URL
+
+journalctl -u camera-tunnel.service --since "2 min ago" --no-pager | grep -o 'https://[a-zA-Z0-9.-]*trycloudflare.com'
+
+10. Send back this final URL
+
+Take the URL from step 9 and append /snapshot
+
+Example:
+https://example-host.trycloudflare.com/snapshot
+
+What to send back
+- Only the final snapshot URL
+
+Notes
+- Replace "test" with the actual Pi username if needed
+- Replace /home/test with the actual home path if needed
+- The trycloudflare.com URL is temporary and may change after reboot or tunnel restart
+- This setup is acceptable for demos, not for long-term stable deployment
