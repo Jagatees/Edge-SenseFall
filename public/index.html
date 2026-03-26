@@ -53,12 +53,18 @@
       opacity: 0.55;
       cursor: not-allowed;
     }
+    .btn-secondary {
+      border: 1px solid var(--line);
+      background: #f8fbff;
+      color: var(--ink);
+    }
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--line); text-transform: capitalize; }
     th { color: var(--muted); text-transform: none; }
     .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 12px; }
     .fall { background: #fee2e2; color: var(--danger); }
     .ok { background: #dcfce7; color: #166534; }
+    .warn { background: #fef3c7; color: #92400e; }
     .preview {
       width: 100%;
       border: 1px solid var(--line);
@@ -66,6 +72,29 @@
       background: #dbeafe;
       min-height: 240px;
       object-fit: cover;
+    }
+    .previewFrame {
+      position: relative;
+    }
+    .previewFrame.privacy .preview {
+      filter: blur(22px) brightness(0.75);
+    }
+    .privacyMask {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      background: rgba(16, 36, 63, 0.35);
+      border-radius: 12px;
+      text-align: center;
+      padding: 16px;
+    }
+    .previewFrame.privacy .privacyMask {
+      display: flex;
     }
     .empty {
       text-align: center;
@@ -110,6 +139,44 @@
     .chartWrap {
       height: 280px;
     }
+    .statusGood { color: #166534; }
+    .statusWarn { color: #92400e; }
+    .statusBad { color: #b91c1c; }
+    .linkBtn {
+      color: #075985;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .archiveGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .archiveItem {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #f8fbff;
+    }
+    .archiveItem img {
+      width: 100%;
+      height: 110px;
+      object-fit: cover;
+      display: block;
+      background: #dbeafe;
+    }
+    .archiveMeta {
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .actionsRow {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
   </style>
 </head>
 <body>
@@ -119,6 +186,9 @@
       <p class="muted">Remote fall monitoring dashboard for Raspberry Pi devices.</p>
       <div class="row">
         <button class="btn" id="refreshBtn">Refresh</button>
+        <button class="btn btn-secondary" id="refreshCameraBtn">Refresh Camera</button>
+        <button class="btn btn-secondary" id="toggleAutoBtn">Pause Auto Refresh</button>
+        <button class="btn btn-secondary" id="togglePrivacyBtn">Enable Privacy Mode</button>
         <span class="muted" id="status">Loading...</span>
       </div>
     </div>
@@ -126,16 +196,38 @@
     <div class="card">
       <h2 style="margin-top:0">Camera Snapshot</h2>
       <p class="muted">1 frame per second from the Raspberry Pi camera.</p>
-      <img
-        id="liveCamera"
-        class="preview"
-        src=""
-        alt="Pi camera snapshot"
-      />
+      <div class="previewFrame" id="previewFrame">
+        <img
+          id="liveCamera"
+          class="preview"
+          src=""
+          alt="Pi camera snapshot"
+        />
+        <div class="privacyMask" id="privacyMask">Privacy mode is enabled. Click the button above to reveal the image.</div>
+      </div>
+      <div class="actionsRow">
+        <span class="muted" id="cameraStatusDetail">Waiting for first camera refresh.</span>
+      </div>
       <div class="metaGrid">
         <div class="metaItem">
           <div class="metaLabel">Last Page Refresh</div>
           <div class="metaValue" id="lastRefreshTime">Loading...</div>
+        </div>
+        <div class="metaItem">
+          <div class="metaLabel">Capture Timestamp</div>
+          <div class="metaValue" id="captureTimestamp">Unavailable</div>
+        </div>
+        <div class="metaItem">
+          <div class="metaLabel">Camera Health</div>
+          <div class="metaValue" id="cameraHealth">Unknown</div>
+        </div>
+        <div class="metaItem">
+          <div class="metaLabel">Last Successful Snapshot</div>
+          <div class="metaValue" id="lastSnapshotTime">Never</div>
+        </div>
+        <div class="metaItem">
+          <div class="metaLabel">Snapshot Failures</div>
+          <div class="metaValue" id="snapshotFailures">0</div>
         </div>
         <div class="metaItem">
           <div class="metaLabel">Estimated Delay</div>
@@ -150,8 +242,28 @@
           <div class="metaValue">1 second</div>
         </div>
         <div class="metaItem">
+          <div class="metaLabel">Pi Uptime</div>
+          <div class="metaValue" id="piUptime">Unavailable</div>
+        </div>
+        <div class="metaItem">
+          <div class="metaLabel">Pi Local IP</div>
+          <div class="metaValue" id="piLocalIp">Unavailable</div>
+        </div>
+        <div class="metaItem">
+          <div class="metaLabel">Tunnel Last Updated</div>
+          <div class="metaValue" id="tunnelUpdated">Unavailable</div>
+        </div>
+        <div class="metaItem">
+          <div class="metaLabel">Camera Guidance</div>
+          <div class="metaValue" id="cameraGuidance">Guidance unavailable</div>
+        </div>
+        <div class="metaItem">
           <div class="metaLabel">Stream Source</div>
           <div class="metaValue">Raspberry Pi via Cloudflare Tunnel</div>
+        </div>
+        <div class="metaItem">
+          <div class="metaLabel">Alert Snapshot</div>
+          <div class="metaValue" id="lastAlertImage">No alert snapshot</div>
         </div>
         <div class="metaItem">
           <div class="metaLabel">Remote URL</div>
@@ -160,6 +272,14 @@
       </div>
       <p class="note" id="cameraDelayNote">Estimated delay: 2 to 5 seconds over remote tunnel.</p>
       <p class="note">Lower bandwidth mode: website fetches one JPEG every second instead of continuous video.</p>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Snapshot Archive</h2>
+      <p class="muted">Recent camera snapshots from the Pi. If this section is empty, the Pi archive endpoint is not enabled yet.</p>
+      <div class="archiveGrid" id="archiveGrid">
+        <div class="empty">Archive unavailable</div>
+      </div>
     </div>
 
     <div class="card">
@@ -195,15 +315,121 @@
     const estimatedDelaySeconds = { min: 2, max: 5 };
     const tunnelBaseUrl = 'https://sports-right-samuel-limits.trycloudflare.com';
     const snapshotUrl = `${tunnelBaseUrl}/snapshot`;
+    const archiveUrl = `${tunnelBaseUrl}/archive.json`;
     const snapshotIntervalMs = 1000;
     const FALL_THRESHOLD = 0.7;
     let confidenceChart = null;
+    let autoRefreshEnabled = true;
+    let privacyModeEnabled = false;
+    let snapshotTimerId = null;
+    let currentSnapshotObjectUrl = null;
+    const cameraState = {
+      failures: 0,
+      lastSuccess: null,
+      lastCaptureHeader: '',
+      lastArchiveRefresh: null,
+    };
 
     function toMillis(ts) {
       if (!ts) return 0;
       const d = new Date(String(ts).replace(' ', 'T'));
       const t = d.getTime();
       return Number.isNaN(t) ? 0 : t;
+    }
+
+    function setText(id, value, className) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = value;
+      el.className = `metaValue ${className || ''}`.trim();
+    }
+
+    function formatDateTime(value) {
+      if (!value) return 'Unavailable';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return String(value);
+      return d.toLocaleString();
+    }
+
+    function resolveEventSnapshotUrl(event) {
+      const metadata = event && event.metadata ? event.metadata : {};
+      const raw = metadata.alert_snapshot_url || metadata.snapshot_url || metadata.image_url || metadata.alert_image_url || metadata.archive_url || metadata.last_alert_image;
+      if (raw && /^https?:\/\//.test(raw)) return raw;
+      if (raw && String(raw).startsWith('/')) return `${tunnelBaseUrl}${raw}`;
+      if (metadata.snapshot_path) {
+        const path = String(metadata.snapshot_path).replace(/^\.?\//, '');
+        return `${tunnelBaseUrl}/${path}`;
+      }
+      return '';
+    }
+
+    function renderArchive(items) {
+      const grid = document.getElementById('archiveGrid');
+      if (!grid) return;
+
+      if (!items || !items.length) {
+        grid.innerHTML = '<div class="empty">Archive unavailable</div>';
+        return;
+      }
+
+      grid.innerHTML = items.slice(0, 20).map((item) => {
+        const url = item.url || item.image_url || item.snapshot_url || '';
+        const label = item.timestamp || item.capture_time || item.created_at || 'Unknown time';
+        const note = item.type || item.kind || 'snapshot';
+        return `
+          <a class="archiveItem" href="${url}" target="_blank" rel="noreferrer">
+            <img src="${url}" alt="Snapshot archive item" />
+            <div class="archiveMeta">${label}<br>${note}</div>
+          </a>
+        `;
+      }).join('');
+    }
+
+    async function refreshArchive() {
+      try {
+        const res = await fetch(`${archiveUrl}?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const items = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : []);
+        renderArchive(items);
+        cameraState.lastArchiveRefresh = new Date().toISOString();
+      } catch (err) {
+        renderArchive([]);
+      }
+    }
+
+    function updateCameraSummary(statusText, cssClass) {
+      const detail = document.getElementById('cameraStatusDetail');
+      if (!detail) return;
+      detail.textContent = statusText;
+      detail.className = `muted ${cssClass || ''}`.trim();
+    }
+
+    function setAutoRefresh(enabled) {
+      autoRefreshEnabled = enabled;
+      const toggleBtn = document.getElementById('toggleAutoBtn');
+      if (toggleBtn) {
+        toggleBtn.textContent = enabled ? 'Pause Auto Refresh' : 'Resume Auto Refresh';
+      }
+      if (enabled) {
+        refreshSnapshot();
+        if (!snapshotTimerId) {
+          snapshotTimerId = setInterval(refreshSnapshot, snapshotIntervalMs);
+        }
+      } else if (snapshotTimerId) {
+        clearInterval(snapshotTimerId);
+        snapshotTimerId = null;
+      }
+    }
+
+    function setPrivacyMode(enabled) {
+      privacyModeEnabled = enabled;
+      const frame = document.getElementById('previewFrame');
+      const toggleBtn = document.getElementById('togglePrivacyBtn');
+      if (frame) frame.classList.toggle('privacy', enabled);
+      if (toggleBtn) {
+        toggleBtn.textContent = enabled ? 'Disable Privacy Mode' : 'Enable Privacy Mode';
+      }
     }
 
     function updateConfidenceChart(events) {
@@ -358,6 +584,7 @@
           trigger = (e.metadata && e.metadata.trigger) ? e.metadata.trigger : 'fusion';
         }
         const statusLabel = (e.metadata && e.metadata.status) ? e.metadata.status : '-';
+        const snapshotLink = resolveEventSnapshotUrl(e);
 
         let cls = 'ok';
         const typeLower = (eventType || '').toString().toLowerCase();
@@ -373,6 +600,7 @@
           <td>${scores}</td>
           <td>${statusLabel}</td>
           <td>
+            ${snapshotLink ? `<a class="linkBtn" href="${snapshotLink}" target="_blank" rel="noreferrer">View image</a> ` : ''}
             <button
               class="btn btn-danger"
               data-action="delete-event"
@@ -443,12 +671,64 @@
       }
     }
 
-    function refreshSnapshot() {
+    async function refreshSnapshot() {
       const img = document.getElementById('liveCamera');
-      img.src = `${snapshotUrl}?t=${Date.now()}`;
+      try {
+        const res = await fetch(`${snapshotUrl}?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const blob = await res.blob();
+        const nextObjectUrl = URL.createObjectURL(blob);
+        if (currentSnapshotObjectUrl) {
+          URL.revokeObjectURL(currentSnapshotObjectUrl);
+        }
+        currentSnapshotObjectUrl = nextObjectUrl;
+        img.src = nextObjectUrl;
+
+        const captureTimestamp = res.headers.get('X-Capture-Time') || res.headers.get('X-Snapshot-Time') || '';
+        const piUptime = res.headers.get('X-Pi-Uptime') || '';
+        const piLocalIp = res.headers.get('X-Pi-Local-IP') || '';
+        const tunnelUpdated = res.headers.get('X-Tunnel-Updated-At') || '';
+        const cameraGuidance = res.headers.get('X-Camera-Guidance') || '';
+        const lastAlertImage = res.headers.get('X-Last-Alert-Image') || '';
+
+        cameraState.failures = 0;
+        cameraState.lastSuccess = new Date().toISOString();
+        cameraState.lastCaptureHeader = captureTimestamp;
+
+        setText('captureTimestamp', captureTimestamp || 'Unavailable');
+        setText('cameraHealth', 'Online', 'statusGood');
+        setText('lastSnapshotTime', formatDateTime(cameraState.lastSuccess));
+        setText('snapshotFailures', String(cameraState.failures));
+        setText('piUptime', piUptime || 'Unavailable');
+        setText('piLocalIp', piLocalIp || 'Unavailable');
+        setText('tunnelUpdated', tunnelUpdated || 'Unavailable');
+        setText('cameraGuidance', cameraGuidance || 'Guidance unavailable');
+        setText('lastAlertImage', lastAlertImage || 'No alert snapshot');
+        updateCameraSummary(captureTimestamp
+          ? `Snapshot received. Capture time: ${captureTimestamp}`
+          : 'Snapshot received. Pi capture timestamp header not available yet.', 'statusGood');
+
+        if (!cameraState.lastArchiveRefresh || (Date.now() - Date.parse(cameraState.lastArchiveRefresh)) > 30000) {
+          refreshArchive();
+        }
+      } catch (err) {
+        cameraState.failures += 1;
+        setText('cameraHealth', 'Offline', 'statusBad');
+        setText('snapshotFailures', String(cameraState.failures));
+        updateCameraSummary('Tunnel URL likely changed or the Pi camera service is unreachable.', 'statusBad');
+      }
     }
 
-    document.getElementById('refreshBtn').addEventListener('click', loadEvents);
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+      loadEvents();
+      refreshSnapshot();
+      refreshArchive();
+    });
+    document.getElementById('refreshCameraBtn').addEventListener('click', refreshSnapshot);
+    document.getElementById('toggleAutoBtn').addEventListener('click', () => setAutoRefresh(!autoRefreshEnabled));
+    document.getElementById('togglePrivacyBtn').addEventListener('click', () => setPrivacyMode(!privacyModeEnabled));
     document.getElementById('rows').addEventListener('click', (event) => {
       const deleteBtn = event.target.closest('button[data-action="delete-event"]');
       if (!deleteBtn) return;
@@ -459,8 +739,9 @@
     document.getElementById('streamUrl').textContent = snapshotUrl;
     document.getElementById('cameraDelayNote').textContent =
       `Estimated delay: ${estimatedDelaySeconds.min} to ${estimatedDelaySeconds.max} seconds over remote tunnel.`;
-    refreshSnapshot();
-    setInterval(refreshSnapshot, snapshotIntervalMs);
+    setPrivacyMode(false);
+    setAutoRefresh(true);
+    refreshArchive();
     loadEvents();
   </script>
 </body>
