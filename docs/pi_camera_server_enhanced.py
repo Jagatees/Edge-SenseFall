@@ -19,6 +19,18 @@ archive_dir.mkdir(parents=True, exist_ok=True)
 archive_index = deque(maxlen=20)
 
 
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Expose-Headers"] = (
+        "X-Capture-Time, X-Snapshot-Time, X-Pi-Uptime, X-Pi-Local-IP, "
+        "X-Tunnel-Updated-At, X-Camera-Guidance, X-Last-Alert-Image"
+    )
+    return response
+
+
 def local_ip():
     try:
         return socket.gethostbyname(socket.gethostname())

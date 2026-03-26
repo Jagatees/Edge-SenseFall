@@ -37,6 +37,13 @@ import cv2
 app = Flask(__name__)
 camera = cv2.VideoCapture(0)
 
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
+
 def gen_frames():
     while True:
         success, frame = camera.read()
@@ -157,3 +164,4 @@ Notes
 - Replace /home/test with the actual home path if needed
 - The trycloudflare.com URL is temporary and may change after reboot or tunnel restart
 - This setup is acceptable for demos, not for long-term stable deployment
+- If the browser shows the image request as 200 OK but the frontend still says offline, the Pi server is usually missing CORS headers. Add the @app.after_request block above and restart the service.
