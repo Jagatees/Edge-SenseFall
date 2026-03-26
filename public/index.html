@@ -363,6 +363,13 @@
       return '';
     }
 
+    function resolveTunnelAssetUrl(raw) {
+      if (!raw) return '';
+      if (/^https?:\/\//.test(raw)) return raw;
+      if (String(raw).startsWith('/')) return `${tunnelBaseUrl}${raw}`;
+      return `${tunnelBaseUrl}/${String(raw).replace(/^\.?\//, '')}`;
+    }
+
     function renderArchive(items) {
       const grid = document.getElementById('archiveGrid');
       if (!grid) return;
@@ -373,7 +380,7 @@
       }
 
       grid.innerHTML = items.slice(0, 20).map((item) => {
-        const url = item.url || item.image_url || item.snapshot_url || '';
+        const url = resolveTunnelAssetUrl(item.url || item.image_url || item.snapshot_url || '');
         const label = item.timestamp || item.capture_time || item.created_at || 'Unknown time';
         const note = item.type || item.kind || 'snapshot';
         return `
