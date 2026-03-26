@@ -41,6 +41,18 @@
       cursor: pointer;
       font-weight: 600;
     }
+    .btn-danger {
+      border-color: #b91c1c;
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    .btn-danger:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--line); text-transform: capitalize; }
     th { color: var(--muted); text-transform: none; }
@@ -170,6 +182,7 @@
             <th>Confidence</th>
             <th>Scores</th>
             <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
@@ -289,12 +302,13 @@
       rows.innerHTML = '';
 
       if (!events || !events.length) {
-        rows.innerHTML = '<tr><td colspan="7" class="empty">No events yet.</td></tr>';
+        rows.innerHTML = '<tr><td colspan="8" class="empty">No events yet.</td></tr>';
         return;
       }
 
       for (const e of events) {
         const tr = document.createElement('tr');
+        const eventId = e.id || '';
         const eventTime = e.event_time || '-';
         const eventType = e.event_type || 'unknown';
         const confidence = (e.confidence != null && !Number.isNaN(Number(e.confidence)))
@@ -358,8 +372,49 @@
           <td>${confidence}</td>
           <td>${scores}</td>
           <td>${statusLabel}</td>
+          <td>
+            <button
+              class="btn btn-danger"
+              data-action="delete-event"
+              data-id="${eventId}"
+              ${eventId ? '' : 'disabled title="Missing event id"'}
+            >Delete</button>
+          </td>
         `;
         rows.appendChild(tr);
+      }
+    }
+
+    async function deleteEvent(eventId, buttonEl) {
+      if (!eventId) return;
+      if (!confirm('Delete this event from Supabase?')) return;
+
+      const status = document.getElementById('status');
+      const originalText = buttonEl ? buttonEl.textContent : '';
+
+      try {
+        if (buttonEl) {
+          buttonEl.disabled = true;
+          buttonEl.textContent = 'Deleting...';
+        }
+
+        status.textContent = 'Deleting event...';
+        const res = await fetch(`/api/events/${encodeURIComponent(eventId)}`, {
+          method: 'DELETE',
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        await loadEvents();
+        status.textContent = 'Event deleted';
+      } catch (err) {
+        status.textContent = 'Error deleting event';
+        if (buttonEl) {
+          buttonEl.disabled = false;
+          buttonEl.textContent = originalText || 'Delete';
+        }
       }
     }
 
@@ -382,7 +437,7 @@
         status.textContent = `Loaded ${data.events.length} live events`;
       } catch (err) {
         const rows = document.getElementById('rows');
-        rows.innerHTML = '<tr><td colspan="7" class="empty">Unable to fetch events</td></tr>';
+        rows.innerHTML = '<tr><td colspan="8" class="empty">Unable to fetch events</td></tr>';
         updateConfidenceChart([]);
         status.textContent = 'Error loading events';
       }
@@ -394,6 +449,11 @@
     }
 
     document.getElementById('refreshBtn').addEventListener('click', loadEvents);
+    document.getElementById('rows').addEventListener('click', (event) => {
+      const deleteBtn = event.target.closest('button[data-action="delete-event"]');
+      if (!deleteBtn) return;
+      deleteEvent(deleteBtn.dataset.id, deleteBtn);
+    });
     document.getElementById('cameraDelay').textContent =
       `${estimatedDelaySeconds.min} to ${estimatedDelaySeconds.max} seconds`;
     document.getElementById('streamUrl').textContent = snapshotUrl;

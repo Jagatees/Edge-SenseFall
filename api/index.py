@@ -45,7 +45,7 @@ def _missing_config():
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, x-api-key"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
     return response
 
 
@@ -62,6 +62,11 @@ def events_options():
 
 @app.route("/api/event", methods=["OPTIONS"])
 def event_options():
+    return ("", 204)
+
+
+@app.route("/api/events/<event_id>", methods=["OPTIONS"])
+def event_delete_options(event_id):
     return ("", 204)
 
 
@@ -127,3 +132,28 @@ def list_events():
         return jsonify({"ok": False, "error": resp.text}), 500
 
     return jsonify({"ok": True, "events": resp.json()})
+
+
+@app.route("/api/events/<event_id>", methods=["DELETE"])
+def delete_event(event_id):
+    missing = _missing_config()
+    if missing:
+        return jsonify({"ok": False, "error": f"Missing config: {', '.join(missing)}"}), 500
+
+    if not event_id:
+        return jsonify({"ok": False, "error": "event_id is required"}), 400
+
+    url = f"{_supabase_base_url()}/smartfall_events"
+    params = {
+        "id": f"eq.{event_id}",
+        "select": "id",
+    }
+    headers = _supabase_headers(False)
+    headers["Prefer"] = "return=representation"
+    resp = requests.delete(url, params=params, headers=headers, timeout=10)
+
+    if resp.status_code >= 400:
+        return jsonify({"ok": False, "error": resp.text}), 500
+
+    deleted_rows = resp.json() if resp.text else []
+    return jsonify({"ok": True, "deleted": len(deleted_rows), "id": event_id})
