@@ -387,7 +387,7 @@
 
     async function deleteEvent(eventId, buttonEl) {
       if (!eventId) return;
-      if (!confirm('Delete this event from Supabase?')) return;
+      if (!confirm('Delete this event from Dashboard?')) return;
 
       const status = document.getElementById('status');
       const originalText = buttonEl ? buttonEl.textContent : '';
