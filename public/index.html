@@ -316,6 +316,7 @@
     const tunnelBaseUrl = 'https://journalism-entitled-basically-smile.trycloudflare.com';
     const snapshotUrl = `${tunnelBaseUrl}/snapshot`;
     const archiveUrl = `${tunnelBaseUrl}/archive.json`;
+    const statusUrl = `${tunnelBaseUrl}/status`;
     const snapshotIntervalMs = 1000;
     const FALL_THRESHOLD = 0.7;
     let confidenceChart = null;
@@ -680,45 +681,35 @@
 
     async function refreshSnapshot() {
       const img = document.getElementById('liveCamera');
-      try {
-        const res = await fetch(`${snapshotUrl}?t=${Date.now()}`, { cache: 'no-store' });
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        const blob = await res.blob();
-        const nextObjectUrl = URL.createObjectURL(blob);
-        if (currentSnapshotObjectUrl) {
-          URL.revokeObjectURL(currentSnapshotObjectUrl);
-        }
-        currentSnapshotObjectUrl = nextObjectUrl;
-        img.src = nextObjectUrl;
+      const url = `${snapshotUrl}?t=${Date.now()}`;
 
-        const captureTimestamp = res.headers.get('X-Capture-Time') || res.headers.get('X-Snapshot-Time') || '';
-        const piUptime = res.headers.get('X-Pi-Uptime') || '';
-        const piLocalIp = res.headers.get('X-Pi-Local-IP') || '';
-        const tunnelUpdated = res.headers.get('X-Tunnel-Updated-At') || '';
-        const cameraGuidance = res.headers.get('X-Camera-Guidance') || '';
-        const lastAlertImage = res.headers.get('X-Last-Alert-Image') || '';
+      try {
+        await new Promise((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error('Image failed to load'));
+          img.src = url;
+        });
 
         cameraState.failures = 0;
         cameraState.lastSuccess = new Date().toISOString();
-        cameraState.lastCaptureHeader = captureTimestamp;
-
-        setText('captureTimestamp', captureTimestamp || 'Unavailable');
         setText('cameraHealth', 'Online', 'statusGood');
         setText('lastSnapshotTime', formatDateTime(cameraState.lastSuccess));
         setText('snapshotFailures', String(cameraState.failures));
-        setText('piUptime', piUptime || 'Unavailable');
-        setText('piLocalIp', piLocalIp || 'Unavailable');
-        setText('tunnelUpdated', tunnelUpdated || 'Unavailable');
-        setText('cameraGuidance', cameraGuidance || 'Guidance unavailable');
-        setText('lastAlertImage', lastAlertImage || 'No alert snapshot');
-        updateCameraSummary(captureTimestamp
-          ? `Snapshot received. Capture time: ${captureTimestamp}`
-          : 'Snapshot received. Pi capture timestamp header not available yet.', 'statusGood');
+        updateCameraSummary('Snapshot received from Pi camera tunnel.', 'statusGood');
 
-        if (!cameraState.lastArchiveRefresh || (Date.now() - Date.parse(cameraState.lastArchiveRefresh)) > 30000) {
-          refreshArchive();
+        try {
+          const statusRes = await fetch(`${statusUrl}?t=${Date.now()}`, { cache: 'no-store' });
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            const captureTimestamp = statusData.timestamp
+              ? new Date(Number(statusData.timestamp) * 1000).toLocaleString()
+              : 'Unavailable';
+            setText('captureTimestamp', captureTimestamp);
+            setText('cameraGuidance', statusData.person_visible ? 'Person visible' : 'No person visible');
+            setText('tunnelUpdated', captureTimestamp);
+          }
+        } catch (err) {
+          setText('captureTimestamp', formatDateTime(cameraState.lastSuccess));
         }
       } catch (err) {
         cameraState.failures += 1;
