@@ -147,30 +147,6 @@
       font-weight: 600;
       text-decoration: none;
     }
-    .archiveGrid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 12px;
-    }
-    .archiveItem {
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      overflow: hidden;
-      background: #f8fbff;
-    }
-    .archiveItem img {
-      width: 100%;
-      height: 110px;
-      object-fit: cover;
-      display: block;
-      background: #dbeafe;
-    }
-    .archiveMeta {
-      padding: 8px 10px;
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.4;
-    }
     .actionsRow {
       margin-top: 12px;
       display: flex;
@@ -275,14 +251,6 @@
     </div>
 
     <div class="card">
-      <h2 style="margin-top:0">Snapshot Archive</h2>
-      <p class="muted">Recent camera snapshots from the Pi. If this section is empty, the Pi archive endpoint is not enabled yet.</p>
-      <div class="archiveGrid" id="archiveGrid">
-        <div class="empty">Archive unavailable</div>
-      </div>
-    </div>
-
-    <div class="card">
       <h2 style="margin-top:0">Fall Confidence Timeline</h2>
       <p class="muted">Only points with confidence above 0.70 are plotted.</p>
       <div class="chartWrap">
@@ -315,7 +283,6 @@
     const estimatedDelaySeconds = { min: 2, max: 5 };
     const tunnelBaseUrl = 'https://coffee-consult-enough-namely.trycloudflare.com';
     const snapshotUrl = `${tunnelBaseUrl}/snapshot`;
-    const archiveUrl = `${tunnelBaseUrl}/archive.json`;
     const statusUrl = `${tunnelBaseUrl}/status`;
     const snapshotIntervalMs = 1000;
     const FALL_THRESHOLD = 0.7;
@@ -328,7 +295,6 @@
       failures: 0,
       lastSuccess: null,
       lastCaptureHeader: '',
-      lastArchiveRefresh: null,
     };
 
     function toMillis(ts) {
@@ -362,48 +328,6 @@
         return `${tunnelBaseUrl}/${path}`;
       }
       return '';
-    }
-
-    function resolveTunnelAssetUrl(raw) {
-      if (!raw) return '';
-      if (/^https?:\/\//.test(raw)) return raw;
-      if (String(raw).startsWith('/')) return `${tunnelBaseUrl}${raw}`;
-      return `${tunnelBaseUrl}/${String(raw).replace(/^\.?\//, '')}`;
-    }
-
-    function renderArchive(items) {
-      const grid = document.getElementById('archiveGrid');
-      if (!grid) return;
-
-      if (!items || !items.length) {
-        grid.innerHTML = '<div class="empty">Archive unavailable</div>';
-        return;
-      }
-
-      grid.innerHTML = items.slice(0, 20).map((item) => {
-        const url = resolveTunnelAssetUrl(item.url || item.image_url || item.snapshot_url || '');
-        const label = item.timestamp || item.capture_time || item.created_at || 'Unknown time';
-        const note = item.type || item.kind || 'snapshot';
-        return `
-          <a class="archiveItem" href="${url}" target="_blank" rel="noreferrer">
-            <img src="${url}" alt="Snapshot archive item" />
-            <div class="archiveMeta">${label}<br>${note}</div>
-          </a>
-        `;
-      }).join('');
-    }
-
-    async function refreshArchive() {
-      try {
-        const res = await fetch(`${archiveUrl}?t=${Date.now()}`, { cache: 'no-store' });
-        if (!res.ok) return;
-        const data = await res.json();
-        const items = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : []);
-        renderArchive(items);
-        cameraState.lastArchiveRefresh = new Date().toISOString();
-      } catch (err) {
-        renderArchive([]);
-      }
     }
 
     function updateCameraSummary(statusText, cssClass) {
@@ -722,7 +646,6 @@
     document.getElementById('refreshBtn').addEventListener('click', () => {
       loadEvents();
       refreshSnapshot();
-      refreshArchive();
     });
     document.getElementById('refreshCameraBtn').addEventListener('click', refreshSnapshot);
     document.getElementById('toggleAutoBtn').addEventListener('click', () => setAutoRefresh(!autoRefreshEnabled));
@@ -739,7 +662,6 @@
       `Estimated delay: ${estimatedDelaySeconds.min} to ${estimatedDelaySeconds.max} seconds over remote tunnel.`;
     setPrivacyMode(false);
     setAutoRefresh(true);
-    refreshArchive();
     loadEvents();
   </script>
 </body>
