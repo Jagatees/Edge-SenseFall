@@ -4,85 +4,49 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SmartFall Cloud Dashboard</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #dfe6e9;
-      --surface: #e7e5e4;
-      --surface-strong: #f1f2f5;
-      --ink: #1e2938;
+      --bg: #eef6ff;
+      --card: #ffffff;
+      --ink: #10243f;
       --muted: #5f6b7a;
-      --line: #cfd4d8;
-      --accent: #006666;
-      --accent-soft: #d8f1f1;
-      --danger: #ff2157;
-      --success: #00a63d;
-      --warning: #fe9900;
-      --shadow-raised: -10px -10px 20px rgba(255, 255, 255, 0.88), 10px 10px 24px rgba(148, 163, 184, 0.28);
-      --shadow-pressed: inset -6px -6px 12px rgba(255, 255, 255, 0.75), inset 6px 6px 14px rgba(148, 163, 184, 0.22);
+      --line: #d7e4f2;
+      --accent: #0ea5e9;
+      --danger: #b91c1c;
     }
     body {
       margin: 0;
-      font-family: "Space Mono", monospace;
+      font-family: "Segoe UI", Tahoma, sans-serif;
       color: var(--ink);
-      background:
-        radial-gradient(circle at top left, rgba(0, 102, 102, 0.14), transparent 30%),
-        radial-gradient(circle at top right, rgba(255, 33, 87, 0.08), transparent 22%),
-        linear-gradient(160deg, #edf0f3 0%, #dfe6e9 52%, #e7e5e4 100%);
+      background: linear-gradient(140deg, #dbeafe 0%, #f8fafc 40%, #d1fae5 100%);
     }
-    .wrap { max-width: 1180px; margin: 26px auto; padding: 0 18px 36px; }
+    .wrap { max-width: 980px; margin: 20px auto; padding: 0 16px; }
     .card {
-      background: var(--surface);
-      border: 1px solid rgba(255, 255, 255, 0.45);
-      border-radius: 28px;
-      padding: 20px;
-      box-shadow: var(--shadow-raised);
-      margin-bottom: 18px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 8px 20px rgba(16, 36, 63, 0.08);
+      margin-bottom: 12px;
     }
-    h1, h2 {
-      margin: 0 0 10px;
-      font-family: "Space Mono", monospace;
-      letter-spacing: -0.04em;
-    }
-    h1 {
-      font-size: clamp(2.2rem, 5vw, 3.35rem);
-      line-height: 0.96;
-    }
-    h2 {
-      font-size: clamp(1.4rem, 3vw, 2rem);
-      line-height: 1.02;
-    }
+    h1 { margin: 0 0 8px; }
     .muted { color: var(--muted); }
     .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     .btn {
-      border: 1px solid rgba(255, 255, 255, 0.55);
-      background: var(--surface);
-      color: var(--accent);
-      border-radius: 16px;
-      padding: 10px 14px;
+      border: 1px solid #0b7db1;
+      background: #e0f2fe;
+      color: #075985;
+      border-radius: 10px;
+      padding: 8px 12px;
       cursor: pointer;
       font-weight: 600;
-      font-family: "JetBrains Mono", monospace;
-      box-shadow: var(--shadow-raised);
-      transition: transform 120ms ease, box-shadow 120ms ease, color 120ms ease;
-    }
-    .btn:hover {
-      transform: translateY(-1px);
-    }
-    .btn:active {
-      box-shadow: var(--shadow-pressed);
-      transform: translateY(0);
-    }
-    .btn:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 3px;
     }
     .btn-danger {
-      color: var(--danger);
+      border-color: #b91c1c;
+      background: #fee2e2;
+      color: #991b1b;
       padding: 6px 10px;
-      border-radius: 12px;
+      border-radius: 8px;
       font-size: 12px;
     }
     .btn-danger:disabled {
@@ -90,31 +54,24 @@
       cursor: not-allowed;
     }
     .btn-secondary {
-      color: var(--ink);
+      border: 1px solid var(--line);
+      background: #f8fbff;
       color: var(--ink);
     }
     table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid rgba(30, 41, 56, 0.08); text-transform: capitalize; vertical-align: top; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--line); text-transform: capitalize; }
     th { color: var(--muted); text-transform: none; }
-    .pill {
-      display: inline-block;
-      padding: 5px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      box-shadow: var(--shadow-raised);
-      background: var(--surface-strong);
-    }
-    .fall { color: var(--danger); }
-    .ok { color: var(--success); }
-    .warn { color: #92400e; }
+    .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 12px; }
+    .fall { background: #fee2e2; color: var(--danger); }
+    .ok { background: #dcfce7; color: #166534; }
+    .warn { background: #fef3c7; color: #92400e; }
     .preview {
       width: 100%;
-      border: 1px solid rgba(255, 255, 255, 0.45);
-      border-radius: 26px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
       background: #dbeafe;
-      min-height: 280px;
+      min-height: 240px;
       object-fit: cover;
-      box-shadow: var(--shadow-pressed);
     }
     .previewFrame {
       position: relative;
@@ -152,24 +109,22 @@
     }
     .metaGrid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-      gap: 14px;
-      margin-top: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
     }
     .metaItem {
-      border: 1px solid rgba(255, 255, 255, 0.35);
-      border-radius: 22px;
-      padding: 14px;
-      background: var(--surface);
-      box-shadow: var(--shadow-raised);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #f8fbff;
     }
     .metaLabel {
-      font-size: 11px;
+      font-size: 12px;
       text-transform: uppercase;
-      letter-spacing: 0.09em;
+      letter-spacing: 0.04em;
       color: var(--muted);
       margin-bottom: 6px;
-      font-family: "JetBrains Mono", monospace;
     }
     .metaValue {
       font-size: 15px;
@@ -183,10 +138,6 @@
     }
     .chartWrap {
       height: 280px;
-      background: var(--surface);
-      border-radius: 24px;
-      box-shadow: var(--shadow-pressed);
-      padding: 12px;
     }
     .statusGood { color: #166534; }
     .statusWarn { color: #92400e; }
@@ -202,11 +153,10 @@
       gap: 12px;
     }
     .archiveItem {
-      border: 1px solid rgba(255, 255, 255, 0.35);
-      border-radius: 22px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
       overflow: hidden;
-      background: var(--surface);
-      box-shadow: var(--shadow-raised);
+      background: #f8fbff;
     }
     .archiveItem img {
       width: 100%;
@@ -214,7 +164,6 @@
       object-fit: cover;
       display: block;
       background: #dbeafe;
-      box-shadow: var(--shadow-pressed);
     }
     .archiveMeta {
       padding: 8px 10px;
@@ -227,21 +176,6 @@
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-    }
-    @media (max-width: 640px) {
-      .wrap {
-        padding: 0 12px 24px;
-      }
-      .card {
-        border-radius: 22px;
-        padding: 16px;
-      }
-      .preview {
-        min-height: 220px;
-      }
-      .metaGrid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
     }
   </style>
 </head>
