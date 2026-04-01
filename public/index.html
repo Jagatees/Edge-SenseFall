@@ -243,7 +243,7 @@
         </div>
         <div class="metaItem">
           <div class="metaLabel">Remote URL</div>
-          <div class="metaValue" id="streamUrl">https://keyboards-definitely-lot-andrew.trycloudflare.com/snapshot</div>
+          <div class="metaValue" id="streamUrl">https://keyboards-definitely-lot-andrew.trycloudflare.com</div>
         </div>
       </div>
       <p class="note" id="cameraDelayNote">Estimated delay: 2 to 5 seconds over remote tunnel.</p>
@@ -657,7 +657,7 @@
     });
     document.getElementById('cameraDelay').textContent =
       `${estimatedDelaySeconds.min} to ${estimatedDelaySeconds.max} seconds`;
-    document.getElementById('streamUrl').textContent = snapshotUrl;
+    document.getElementById('streamUrl').textContent = tunnelBaseUrl;
     document.getElementById('cameraDelayNote').textContent =
       `Estimated delay: ${estimatedDelaySeconds.min} to ${estimatedDelaySeconds.max} seconds over remote tunnel.`;
     setPrivacyMode(false);
